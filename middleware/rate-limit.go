@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -87,9 +88,29 @@ func rateLimitFactory(maxRequestNum int, duration int64, mark string) func(c *gi
 	}
 }
 
+func isWebStaticAssetPath(path string) bool {
+	if strings.HasPrefix(path, "/static/") || strings.HasPrefix(path, "/assets/") {
+		return true
+	}
+
+	switch path {
+	case "/favicon.ico", "/favicon-32x32.png", "/logo.png", "/robots.txt", "/waffo-logo-dark.svg", "/waffo-logo-light.svg":
+		return true
+	default:
+		return false
+	}
+}
+
 func GlobalWebRateLimit() func(c *gin.Context) {
 	if common.GlobalWebRateLimitEnable {
-		return rateLimitFactory(common.GlobalWebRateLimitNum, common.GlobalWebRateLimitDuration, "GW")
+		limiter := rateLimitFactory(common.GlobalWebRateLimitNum, common.GlobalWebRateLimitDuration, "GW")
+		return func(c *gin.Context) {
+			if isWebStaticAssetPath(c.Request.URL.Path) {
+				c.Next()
+				return
+			}
+			limiter(c)
+		}
 	}
 	return defNext
 }

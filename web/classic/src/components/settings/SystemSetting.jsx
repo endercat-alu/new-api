@@ -696,6 +696,11 @@ const SystemSetting = () => {
     setShowPasswordLoginConfirmModal(false);
   };
 
+  const switchToDefaultFrontend = async () => {
+    await updateOptions([{ key: 'theme.frontend', value: 'default' }]);
+    window.location.reload();
+  };
+
   return (
     <div>
       {isLoaded ? (
@@ -731,6 +736,9 @@ const SystemSetting = () => {
                   </Row>
                   <Button onClick={submitServerAddress}>
                     {t('更新服务器地址')}
+                  </Button>
+                  <Button onClick={switchToDefaultFrontend} style={{ marginLeft: 8 }}>
+                    {t('切换到新版前端')}
                   </Button>
                 </Form.Section>
               </Card>
