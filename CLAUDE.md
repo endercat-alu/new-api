@@ -52,6 +52,13 @@ web/             — Frontend themes container
 - Usage: `useTranslation()` hook, call `t('English key')` in components
 - CLI tools: `bun run i18n:sync` (from `web/default/`)
 
+## Local Development Workflow
+
+- Standard local backend test method: use local SQLite and run `go run main.go`; do not default to Docker/PostgreSQL unless the task specifically requires cross-database or container verification.
+- If embedded frontend assets are missing, build them first with `make build-all-frontends`, then run the backend locally.
+- For frontend work, use `cd web/default && bun install && bun run dev`; prefer Bun for all frontend scripts.
+- If verification requires interactive browser/UI actions, ask the user to test manually and report the result instead of claiming the interactive behavior was verified.
+
 ## Rules
 
 ### Rule 1: JSON Package — Use `common/json.go`

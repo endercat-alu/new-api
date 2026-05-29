@@ -16,12 +16,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, RefreshCw, Trash2, Power, PowerOff } from 'lucide-react'
+import {
+  FlaskConical,
+  Loader2,
+  Power,
+  PowerOff,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -56,6 +64,7 @@ import {
   enableAllMultiKeys,
   disableAllMultiKeys,
   deleteDisabledMultiKeys,
+  testMultiKeys,
 } from '../../api'
 import { MULTI_KEY_FILTER_OPTIONS } from '../../constants'
 import {
@@ -65,7 +74,11 @@ import {
   getMultiKeyConfirmMessage,
   isDestructiveAction,
 } from '../../lib'
-import type { KeyStatus, MultiKeyConfirmAction } from '../../types'
+import type {
+  KeyStatus,
+  MultiKeyConfirmAction,
+  MultiKeyTestResult,
+} from '../../types'
 import { useChannels } from '../channels-provider'
 import { StatisticsCard } from './multi-key-statistics-card'
 import { MultiKeyTableRowActions } from './multi-key-table-row-actions'
@@ -99,6 +112,14 @@ export function MultiKeyManageDialog({
   const [confirmAction, setConfirmAction] =
     useState<MultiKeyConfirmAction | null>(null)
   const [isPerformingAction, setIsPerformingAction] = useState(false)
+  const [testIntervalMs, setTestIntervalMs] = useState(1000)
+  const [isTestingKeys, setIsTestingKeys] = useState(false)
+  const [testingKeyIndexes, setTestingKeyIndexes] = useState<Set<number>>(
+    () => new Set()
+  )
+  const [keyTestResults, setKeyTestResults] = useState<
+    Record<number, MultiKeyTestResult>
+  >({})
 
   // Reset and load data when dialog opens
   useEffect(() => {
@@ -157,6 +178,68 @@ export function MultiKeyManageDialog({
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage)
     loadKeyStatus(newPage, pageSize)
+  }
+
+  const handleTestKeys = async () => {
+    if (!currentRow) return
+
+    setIsTestingKeys(true)
+    setKeyTestResults({})
+    try {
+      const normalizedInterval = Math.max(1, Math.floor(testIntervalMs || 1000))
+      const response = await testMultiKeys(currentRow.id, normalizedInterval)
+
+      if (response.success) {
+        const results = response.data || []
+        setKeyTestResults(
+          Object.fromEntries(results.map((result) => [result.index, result]))
+        )
+        toast.success(response.message || t('Key test completed'))
+        queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+        loadKeyStatus(currentPage, pageSize)
+      } else {
+        toast.error(response.message || t('Key test failed'))
+      }
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : t('Key test failed'))
+    } finally {
+      setIsTestingKeys(false)
+    }
+  }
+
+  const handleTestKey = async (keyIndex: number) => {
+    if (!currentRow) return
+
+    setTestingKeyIndexes((prev) => new Set(prev).add(keyIndex))
+    try {
+      const normalizedInterval = Math.max(1, Math.floor(testIntervalMs || 1000))
+      const response = await testMultiKeys(
+        currentRow.id,
+        normalizedInterval,
+        keyIndex
+      )
+
+      if (response.success) {
+        const results = response.data || []
+        setKeyTestResults((prev) => ({
+          ...prev,
+          ...Object.fromEntries(results.map((result) => [result.index, result])),
+        }))
+        toast.success(response.message || t('Key test completed'))
+        queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+        loadKeyStatus(currentPage, pageSize)
+      } else {
+        toast.error(response.message || t('Key test failed'))
+      }
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : t('Key test failed'))
+    } finally {
+      setTestingKeyIndexes((prev) => {
+        const next = new Set(prev)
+        next.delete(keyIndex)
+        return next
+      })
+    }
   }
 
   const performAction = async () => {
@@ -224,12 +307,33 @@ export function MultiKeyManageDialog({
     return formatTimestamp(timestamp)
   }
 
+  const renderTestResult = (result?: MultiKeyTestResult) => {
+    if (!result) return <span className='text-muted-foreground'>-</span>
+
+    if (result.success) {
+      return (
+        <StatusBadge
+          label={`${t('Success')} (${result.response_time}ms)`}
+          variant='success'
+          showDot
+          copyable={false}
+        />
+      )
+    }
+
+    return (
+      <span className='text-destructive block max-w-48 truncate text-sm'>
+        {result.message || t('Failed')}
+      </span>
+    )
+  }
+
   if (!currentRow) return null
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className='flex max-h-[90vh] max-w-5xl flex-col'>
+        <DialogContent className='flex max-h-[90vh] !w-[min(980px,calc(100vw-2rem))] !max-w-none flex-col sm:!max-w-none'>
           <DialogHeader>
             <DialogTitle className='flex items-center gap-2'>
               {t('Multi-Key Management')}
@@ -278,32 +382,57 @@ export function MultiKeyManageDialog({
             <Separator className='shrink-0' />
 
             {/* Toolbar */}
-            <div className='flex shrink-0 items-center justify-between'>
-              <Select
-                items={[
-                  ...MULTI_KEY_FILTER_OPTIONS.map((option) => ({
-                    value: option.value,
-                    label: t(option.label),
-                  })),
-                ]}
-                value={statusFilter === null ? 'all' : statusFilter.toString()}
-                onValueChange={(v) => v !== null && handleStatusFilterChange(v)}
-              >
-                <SelectTrigger className='w-40'>
-                  <SelectValue placeholder={t('All Status')} />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectGroup>
-                    {MULTI_KEY_FILTER_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {t(option.label)}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+            <div className='flex shrink-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-between'>
+              <div className='flex flex-wrap items-center gap-2'>
+                <Select
+                  items={[
+                    ...MULTI_KEY_FILTER_OPTIONS.map((option) => ({
+                      value: option.value,
+                      label: t(option.label),
+                    })),
+                  ]}
+                  value={statusFilter === null ? 'all' : statusFilter.toString()}
+                  onValueChange={(v) => v !== null && handleStatusFilterChange(v)}
+                >
+                  <SelectTrigger className='w-40'>
+                    <SelectValue placeholder={t('All Status')} />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectGroup>
+                      {MULTI_KEY_FILTER_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {t(option.label)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <div className='flex items-center gap-2'>
+              <div className='flex flex-wrap items-center justify-start gap-2 xl:justify-end'>
+                <Input
+                  type='number'
+                  min={1}
+                  className='w-28'
+                  value={testIntervalMs}
+                  onChange={(event) =>
+                    setTestIntervalMs(Number(event.target.value) || 1000)
+                  }
+                />
+                <span className='text-muted-foreground text-sm'>ms</span>
+                <Button
+                  variant='default'
+                  size='sm'
+                  onClick={handleTestKeys}
+                  disabled={isLoading || isTestingKeys || keys.length === 0}
+                >
+                  {isTestingKeys ? (
+                    <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  ) : (
+                    <FlaskConical className='mr-2 h-4 w-4' />
+                  )}
+                  {t('Test All')}
+                </Button>
                 <Button
                   variant='outline'
                   size='sm'
@@ -351,7 +480,7 @@ export function MultiKeyManageDialog({
             </div>
 
             {/* Table */}
-            <div className='min-h-0 flex-1 overflow-auto rounded-md border'>
+            <div className='min-h-0 min-w-0 flex-1 overflow-auto rounded-md border'>
               {isLoading ? (
                 <div className='flex items-center justify-center py-12'>
                   <Loader2 className='text-muted-foreground h-8 w-8 animate-spin' />
@@ -361,19 +490,21 @@ export function MultiKeyManageDialog({
                   {t('No keys found')}
                 </div>
               ) : (
-                <div className='min-w-[800px]'>
+                <div className='min-w-[980px]'>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className='w-20'>{t('Index')}</TableHead>
-                        <TableHead className='w-32'>{t('Status')}</TableHead>
-                        <TableHead className='min-w-[200px]'>
+                        <TableHead className='w-12'>{t('Index')}</TableHead>
+                        <TableHead className='w-24'>{t('Key Preview')}</TableHead>
+                        <TableHead className='w-20'>{t('Status')}</TableHead>
+                        <TableHead className='w-48'>
                           {t('Disabled Reason')}
                         </TableHead>
-                        <TableHead className='w-44'>
+                        <TableHead className='w-36'>
                           {t('Disabled Time')}
                         </TableHead>
-                        <TableHead className='w-44 text-right'>
+                        <TableHead className='w-24'>{t('Test Result')}</TableHead>
+                        <TableHead className='w-48 text-right'>
                           {t('Actions')}
                         </TableHead>
                       </TableRow>
@@ -384,18 +515,26 @@ export function MultiKeyManageDialog({
                           <TableCell className='font-mono text-sm'>
                             #{key.index + 1}
                           </TableCell>
+                          <TableCell className='font-mono text-sm'>
+                            {key.key_preview || '-'}
+                          </TableCell>
                           <TableCell>{renderStatusBadge(key.status)}</TableCell>
-                          <TableCell className='max-w-xs truncate text-sm'>
+                          <TableCell className='max-w-48 truncate text-sm'>
                             {key.reason || '-'}
                           </TableCell>
-                          <TableCell className='text-muted-foreground text-sm'>
+                          <TableCell className='text-muted-foreground text-sm whitespace-nowrap'>
                             {formatKeyTimestamp(key.disabled_time)}
                           </TableCell>
                           <TableCell>
+                            {renderTestResult(keyTestResults[key.index])}
+                          </TableCell>
+                          <TableCell className='text-right'>
                             <MultiKeyTableRowActions
                               keyIndex={key.index}
                               status={key.status}
+                              isTesting={testingKeyIndexes.has(key.index)}
                               onAction={setConfirmAction}
+                              onTest={handleTestKey}
                             />
                           </TableCell>
                         </TableRow>

@@ -36,6 +36,7 @@ import {
   Badge,
   Progress,
   Card,
+  InputNumber,
 } from '@douyinfe/semi-ui';
 import {
   IllustrationNoResult,
@@ -55,6 +56,8 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   const [keyStatusList, setKeyStatusList] = useState([]);
   const [operationLoading, setOperationLoading] = useState({});
+  const [testIntervalMs, setTestIntervalMs] = useState(1000);
+  const [testResults, setTestResults] = useState({});
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -273,6 +276,68 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
+  const handleTestKeys = async () => {
+    setOperationLoading((prev) => ({ ...prev, test_keys: true }));
+    setTestResults({});
+
+    try {
+      const interval = Math.max(1, Math.floor(testIntervalMs || 1000));
+      const res = await API.post('/api/channel/multi_key/manage', {
+        channel_id: channel.id,
+        action: 'test_keys',
+        test_interval_ms: interval,
+      });
+
+      if (res.data.success) {
+        const results = res.data.data || [];
+        setTestResults(
+          Object.fromEntries(results.map((result) => [result.index, result])),
+        );
+        showSuccess(res.data.message || t('密钥测试完成'));
+        await loadKeyStatus(currentPage, pageSize);
+        onRefresh && onRefresh();
+      } else {
+        showError(res.data.message);
+      }
+    } catch (error) {
+      showError(t('密钥测试失败'));
+    } finally {
+      setOperationLoading((prev) => ({ ...prev, test_keys: false }));
+    }
+  };
+
+  const handleTestKey = async (keyIndex) => {
+    const operationId = `test_${keyIndex}`;
+    setOperationLoading((prev) => ({ ...prev, [operationId]: true }));
+
+    try {
+      const interval = Math.max(1, Math.floor(testIntervalMs || 1000));
+      const res = await API.post('/api/channel/multi_key/manage', {
+        channel_id: channel.id,
+        action: 'test_keys',
+        key_index: keyIndex,
+        test_interval_ms: interval,
+      });
+
+      if (res.data.success) {
+        const results = res.data.data || [];
+        setTestResults((prev) => ({
+          ...prev,
+          ...Object.fromEntries(results.map((result) => [result.index, result])),
+        }));
+        showSuccess(res.data.message || t('密钥测试完成'));
+        await loadKeyStatus(currentPage, pageSize);
+        onRefresh && onRefresh();
+      } else {
+        showError(res.data.message);
+      }
+    } catch (error) {
+      showError(t('密钥测试失败'));
+    } finally {
+      setOperationLoading((prev) => ({ ...prev, [operationId]: false }));
+    }
+  };
+
   // Handle page change
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -312,6 +377,7 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       setManualDisabledCount(0);
       setAutoDisabledCount(0);
       setStatusFilter(null); // Reset filter
+      setTestResults({});
     }
   }, [visible]);
 
@@ -355,6 +421,27 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
   };
 
+  const renderTestResult = (record) => {
+    const result = testResults[record.index];
+    if (!result) {
+      return <Text type='quaternary'>-</Text>;
+    }
+    if (result.success) {
+      return (
+        <Tag color='green' shape='circle' size='small'>
+          {t('成功')} ({result.response_time}ms)
+        </Tag>
+      );
+    }
+    return (
+      <Tooltip content={result.message || t('失败')}>
+        <Text type='danger' style={{ maxWidth: 180, display: 'block' }} ellipsis>
+          {result.message || t('失败')}
+        </Text>
+      </Tooltip>
+    );
+  };
+
   // Table columns definition
   const columns = [
     {
@@ -362,15 +449,15 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       dataIndex: 'index',
       render: (text) => `#${Number(text) + 1}`,
     },
-    // {
-    //   title: t('密钥预览'),
-    //   dataIndex: 'key_preview',
-    //   render: (text) => (
-    //     <Text code style={{ fontSize: '12px' }}>
-    //       {text}
-    //     </Text>
-    //   ),
-    // },
+    {
+      title: t('密钥预览'),
+      dataIndex: 'key_preview',
+      render: (text) => (
+        <Text code style={{ fontSize: '12px' }}>
+          {text || '-'}
+        </Text>
+      ),
+    },
     {
       title: t('状态'),
       dataIndex: 'status',
@@ -407,12 +494,24 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       },
     },
     {
+      title: t('测试结果'),
+      key: 'test_result',
+      render: (_, record) => renderTestResult(record),
+    },
+    {
       title: t('操作'),
       key: 'action',
       fixed: 'right',
-      width: 150,
+      width: 210,
       render: (_, record) => (
         <Space>
+          <Button
+            size='small'
+            loading={operationLoading[`test_${record.index}`]}
+            onClick={() => handleTestKey(record.index)}
+          >
+            {t('测试')}
+          </Button>
           {record.status === 1 ? (
             <Button
               type='danger'
@@ -476,7 +575,7 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
       }
       visible={visible}
       onCancel={onCancel}
-      width={900}
+      width={1100}
       footer={null}
     >
       <div className='flex flex-col mb-5'>
@@ -601,7 +700,7 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
               <Table
                 title={() => (
                   <Row gutter={12} style={{ width: '100%' }}>
-                    <Col span={14}>
+                    <Col span={12}>
                       <Row gutter={12} style={{ alignItems: 'center' }}>
                         <Col>
                           <Select
@@ -627,10 +726,27 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
                       </Row>
                     </Col>
                     <Col
-                      span={10}
+                      span={12}
                       style={{ display: 'flex', justifyContent: 'flex-end' }}
                     >
                       <Space>
+                        <InputNumber
+                          min={1}
+                          size='small'
+                          value={testIntervalMs}
+                          onChange={(value) => setTestIntervalMs(value || 1000)}
+                          style={{ width: 110 }}
+                        />
+                        <Text type='tertiary'>ms</Text>
+                        <Button
+                          size='small'
+                          type='primary'
+                          loading={operationLoading.test_keys}
+                          disabled={loading || keyStatusList.length === 0}
+                          onClick={handleTestKeys}
+                        >
+                          {t('全部测试')}
+                        </Button>
                         <Button
                           size='small'
                           type='tertiary'

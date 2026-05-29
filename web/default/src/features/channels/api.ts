@@ -33,6 +33,7 @@ import type {
   GetChannelsResponse,
   MultiKeyManageParams,
   MultiKeyStatusResponse,
+  MultiKeyTestResponse,
   SearchChannelsParams,
   SearchChannelsResponse,
   TagOperationParams,
@@ -439,6 +440,19 @@ export async function deleteDisabledMultiKeys(
     channel_id: channelId,
     action: 'delete_disabled_keys',
   }) as Promise<{ success: boolean; message?: string; data?: number }>
+}
+
+export async function testMultiKeys(
+  channelId: number,
+  testIntervalMs = 1000,
+  keyIndex?: number
+): Promise<MultiKeyTestResponse> {
+  return manageMultiKeys({
+    channel_id: channelId,
+    action: 'test_keys',
+    test_interval_ms: testIntervalMs,
+    key_index: keyIndex,
+  }) as Promise<MultiKeyTestResponse>
 }
 
 // ============================================================================

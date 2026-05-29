@@ -1230,12 +1230,13 @@ func CopyChannel(c *gin.Context) {
 
 // MultiKeyManageRequest represents the request for multi-key management operations
 type MultiKeyManageRequest struct {
-	ChannelId int    `json:"channel_id"`
-	Action    string `json:"action"`              // "disable_key", "enable_key", "delete_key", "delete_disabled_keys", "get_key_status"
-	KeyIndex  *int   `json:"key_index,omitempty"` // for disable_key, enable_key, and delete_key actions
-	Page      int    `json:"page,omitempty"`      // for get_key_status pagination
-	PageSize  int    `json:"page_size,omitempty"` // for get_key_status pagination
-	Status    *int   `json:"status,omitempty"`    // for get_key_status filtering: 1=enabled, 2=manual_disabled, 3=auto_disabled, nil=all
+	ChannelId      int    `json:"channel_id"`
+	Action         string `json:"action"`                     // "disable_key", "enable_key", "delete_key", "delete_disabled_keys", "get_key_status", "test_keys"
+	KeyIndex       *int   `json:"key_index,omitempty"`        // for disable_key, enable_key, and delete_key actions
+	Page           int    `json:"page,omitempty"`             // for get_key_status pagination
+	PageSize       int    `json:"page_size,omitempty"`        // for get_key_status pagination
+	Status         *int   `json:"status,omitempty"`           // for get_key_status filtering: 1=enabled, 2=manual_disabled, 3=auto_disabled, nil=all
+	TestIntervalMs int    `json:"test_interval_ms,omitempty"` // for test_keys action
 }
 
 // MultiKeyStatusResponse represents the response for key status query
@@ -1256,7 +1257,24 @@ type KeyStatus struct {
 	Status       int    `json:"status"` // 1: enabled, 2: disabled
 	DisabledTime int64  `json:"disabled_time,omitempty"`
 	Reason       string `json:"reason,omitempty"`
-	KeyPreview   string `json:"key_preview"` // first 10 chars of key for identification
+	KeyPreview   string `json:"key_preview"`
+}
+
+type MultiKeyTestResult struct {
+	Index        int    `json:"index"`
+	Success      bool   `json:"success"`
+	Message      string `json:"message,omitempty"`
+	ResponseTime int64  `json:"response_time"`
+}
+
+func formatMultiKeyPreview(key string) string {
+	if len(key) <= 4 {
+		return key
+	}
+	if len(key) <= 8 {
+		return key[len(key)-4:]
+	}
+	return key[:4] + "..." + key[len(key)-4:]
 }
 
 // ManageMultiKeys handles multi-key management operations
@@ -1338,11 +1356,7 @@ func ManageMultiKeys(c *gin.Context) {
 				}
 			}
 
-			// Create key preview (first 10 chars)
-			keyPreview := key
-			if len(key) > 10 {
-				keyPreview = key[:10] + "..."
-			}
+			keyPreview := formatMultiKeyPreview(key)
 
 			allKeyStatusList = append(allKeyStatusList, KeyStatus{
 				Index:        i,
@@ -1557,6 +1571,100 @@ func ManageMultiKeys(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": fmt.Sprintf("已禁用 %d 个密钥", disabledCount),
+		})
+		return
+
+	case "test_keys":
+		keys := channel.GetKeys()
+		if len(keys) == 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "没有可测试的密钥",
+			})
+			return
+		}
+
+		testUserID, err := resolveChannelTestUserID(c)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+
+		testIntervalMs := request.TestIntervalMs
+		if testIntervalMs <= 0 {
+			testIntervalMs = 1000
+		}
+
+		if channel.ChannelInfo.MultiKeyStatusList == nil {
+			channel.ChannelInfo.MultiKeyStatusList = make(map[int]int)
+		}
+		if channel.ChannelInfo.MultiKeyDisabledTime == nil {
+			channel.ChannelInfo.MultiKeyDisabledTime = make(map[int]int64)
+		}
+		if channel.ChannelInfo.MultiKeyDisabledReason == nil {
+			channel.ChannelInfo.MultiKeyDisabledReason = make(map[int]string)
+		}
+
+		indicesToTest := make([]int, 0, len(keys))
+		if request.KeyIndex != nil {
+			keyIndex := *request.KeyIndex
+			if keyIndex < 0 || keyIndex >= len(keys) {
+				c.JSON(http.StatusOK, gin.H{
+					"success": false,
+					"message": "密钥索引超出范围",
+				})
+				return
+			}
+			indicesToTest = append(indicesToTest, keyIndex)
+		} else {
+			for i := range keys {
+				indicesToTest = append(indicesToTest, i)
+			}
+		}
+
+		results := make([]MultiKeyTestResult, 0, len(indicesToTest))
+		for index, i := range indicesToTest {
+			tik := time.Now()
+			result := testChannelWithKeyIndex(channel, i, testUserID, "", "", false)
+			responseTime := time.Since(tik).Milliseconds()
+			testResultItem := MultiKeyTestResult{
+				Index:        i,
+				Success:      result.localErr == nil && result.newAPIError == nil,
+				ResponseTime: responseTime,
+			}
+
+			if testResultItem.Success {
+				delete(channel.ChannelInfo.MultiKeyStatusList, i)
+				delete(channel.ChannelInfo.MultiKeyDisabledTime, i)
+				delete(channel.ChannelInfo.MultiKeyDisabledReason, i)
+			} else {
+				if result.newAPIError != nil {
+					testResultItem.Message = result.newAPIError.Error()
+				} else if result.localErr != nil {
+					testResultItem.Message = result.localErr.Error()
+				}
+				channel.ChannelInfo.MultiKeyStatusList[i] = 3
+				channel.ChannelInfo.MultiKeyDisabledTime[i] = common.GetTimestamp()
+				channel.ChannelInfo.MultiKeyDisabledReason[i] = testResultItem.Message
+			}
+
+			results = append(results, testResultItem)
+			if index < len(indicesToTest)-1 {
+				time.Sleep(time.Duration(testIntervalMs) * time.Millisecond)
+			}
+		}
+
+		err = channel.Update()
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+
+		model.InitChannelCache()
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "密钥测试完成",
+			"data":    results,
 		})
 		return
 

@@ -208,6 +208,19 @@ export interface MultiKeyStatusResponse {
   }
 }
 
+export interface MultiKeyTestResult {
+  index: number
+  success: boolean
+  message?: string
+  response_time: number
+}
+
+export interface MultiKeyTestResponse {
+  success: boolean
+  message?: string
+  data?: MultiKeyTestResult[]
+}
+
 // ============================================================================
 // API Request Parameters
 // ============================================================================
@@ -267,10 +280,12 @@ export interface MultiKeyManageParams {
     | 'disable_all_keys'
     | 'delete_key'
     | 'delete_disabled_keys'
+    | 'test_keys'
   key_index?: number
   page?: number
   page_size?: number
   status?: number // 1=enabled, 2=manual_disabled, 3=auto_disabled
+  test_interval_ms?: number
 }
 
 export interface BatchDeleteParams {

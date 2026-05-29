@@ -74,6 +74,24 @@ func resolveChannelTestUserID(c *gin.Context) (int, error) {
 	return rootUser.Id, nil
 }
 
+func testChannelWithKeyIndex(channel *model.Channel, keyIndex int, testUserID int, testModel string, endpointType string, isStream bool) testResult {
+	keys := channel.GetKeys()
+	if keyIndex < 0 || keyIndex >= len(keys) {
+		return testResult{
+			localErr: fmt.Errorf("key index %d out of range", keyIndex),
+		}
+	}
+
+	testChannelCopy := *channel
+	testChannelInfo := channel.ChannelInfo
+	testChannelInfo.IsMultiKey = false
+	testChannelCopy.ChannelInfo = testChannelInfo
+	testChannelCopy.Key = keys[keyIndex]
+	testChannelCopy.Keys = []string{keys[keyIndex]}
+
+	return testChannel(&testChannelCopy, testUserID, testModel, endpointType, isStream)
+}
+
 func testChannel(channel *model.Channel, testUserID int, testModel string, endpointType string, isStream bool) testResult {
 	tik := time.Now()
 	var unsupportedTestChannelTypes = []int{
