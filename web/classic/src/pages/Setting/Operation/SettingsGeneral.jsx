@@ -54,6 +54,7 @@ export default function GeneralSettings(props) {
     RetryTimes: '',
     USDExchangeRate: '',
     DisplayTokenStatEnabled: false,
+    ChannelKeyVerificationEnabled: true,
     DefaultCollapseSidebar: false,
     DemoSiteEnabled: false,
     SelfUseModeEnabled: false,
@@ -357,6 +358,19 @@ export default function GeneralSettings(props) {
                   checkedText='｜'
                   uncheckedText='〇'
                   onChange={handleFieldChange('DisplayTokenStatEnabled')}
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Switch
+                  field={'ChannelKeyVerificationEnabled'}
+                  label={t('渠道密钥二次验证')}
+                  extraText={t(
+                    '开启后查看渠道密钥需要二次验证，关闭后将直接展示渠道密钥',
+                  )}
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={handleFieldChange('ChannelKeyVerificationEnabled')}
                 />
               </Col>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>

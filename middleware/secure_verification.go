@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -21,60 +22,81 @@ const (
 // 如果未验证或验证已过期，返回 401 错误
 func SecureVerificationRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 检查用户是否已登录
-		userId := c.GetInt("id")
-		if userId == 0 {
+		if checkSecureVerification(c, true) {
+			c.Next()
+		}
+	}
+}
+
+func ChannelKeyVerificationRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !common.ChannelKeyVerificationEnabled {
+			c.Next()
+			return
+		}
+		if checkSecureVerification(c, true) {
+			c.Next()
+		}
+	}
+}
+
+func checkSecureVerification(c *gin.Context, abortOnFailure bool) bool {
+	userId := c.GetInt("id")
+	if userId == 0 {
+		if abortOnFailure {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"message": "未登录",
 			})
 			c.Abort()
-			return
 		}
+		return false
+	}
 
-		// 检查 session 中的验证时间戳
-		session := sessions.Default(c)
-		verifiedAtRaw := session.Get(SecureVerificationSessionKey)
+	session := sessions.Default(c)
+	verifiedAtRaw := session.Get(SecureVerificationSessionKey)
 
-		if verifiedAtRaw == nil {
+	if verifiedAtRaw == nil {
+		if abortOnFailure {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
 				"message": "需要安全验证",
 				"code":    "VERIFICATION_REQUIRED",
 			})
 			c.Abort()
-			return
 		}
+		return false
+	}
 
-		verifiedAt, ok := verifiedAtRaw.(int64)
-		if !ok {
-			// session 数据格式错误
-			clearSecureVerificationSession(session)
+	verifiedAt, ok := verifiedAtRaw.(int64)
+	if !ok {
+		clearSecureVerificationSession(session)
+		if abortOnFailure {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
 				"message": "验证状态异常，请重新验证",
 				"code":    "VERIFICATION_INVALID",
 			})
 			c.Abort()
-			return
 		}
+		return false
+	}
 
-		// 检查验证是否过期
-		elapsed := time.Now().Unix() - verifiedAt
-		if elapsed >= SecureVerificationTimeout {
-			// 验证已过期，清除 session
-			clearSecureVerificationSession(session)
+	elapsed := time.Now().Unix() - verifiedAt
+	if elapsed >= SecureVerificationTimeout {
+		clearSecureVerificationSession(session)
+		if abortOnFailure {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
 				"message": "验证已过期，请重新验证",
 				"code":    "VERIFICATION_EXPIRED",
 			})
 			c.Abort()
-			return
 		}
-
-		c.Next()
+		return false
 	}
+
+	return true
 }
 
 func clearSecureVerificationSession(session sessions.Session) {
@@ -88,37 +110,14 @@ func clearSecureVerificationSession(session sessions.Session) {
 // 用于某些需要区分是否已验证的场景
 func OptionalSecureVerification() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userId := c.GetInt("id")
-		if userId == 0 {
+		if !checkSecureVerification(c, false) {
 			c.Set("secure_verified", false)
 			c.Next()
 			return
 		}
 
 		session := sessions.Default(c)
-		verifiedAtRaw := session.Get(SecureVerificationSessionKey)
-
-		if verifiedAtRaw == nil {
-			c.Set("secure_verified", false)
-			c.Next()
-			return
-		}
-
-		verifiedAt, ok := verifiedAtRaw.(int64)
-		if !ok {
-			c.Set("secure_verified", false)
-			c.Next()
-			return
-		}
-
-		elapsed := time.Now().Unix() - verifiedAt
-		if elapsed >= SecureVerificationTimeout {
-			clearSecureVerificationSession(session)
-			c.Set("secure_verified", false)
-			c.Next()
-			return
-		}
-
+		verifiedAt, _ := session.Get(SecureVerificationSessionKey).(int64)
 		c.Set("secure_verified", true)
 		c.Set("secure_verified_at", verifiedAt)
 		c.Next()

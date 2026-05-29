@@ -46,6 +46,7 @@ const OperationSetting = () => {
     RetryTimes: 0,
     'general_setting.quota_display_type': 'USD',
     DisplayTokenStatEnabled: false,
+    ChannelKeyVerificationEnabled: true,
     DefaultCollapseSidebar: false,
     DemoSiteEnabled: false,
     SelfUseModeEnabled: false,
