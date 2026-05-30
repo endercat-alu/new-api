@@ -45,11 +45,6 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { MODEL_FETCHABLE_TYPES } from '../constants'
 import {
@@ -141,68 +136,53 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
 
   return (
     <div className='flex items-center justify-end gap-1'>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant='ghost'
-              size='icon-sm'
-              onClick={handleDirectTest}
-              disabled={isTesting}
-              aria-label={t('Test Connection')}
-            />
-          }
-        >
-          {isTesting ? (
-            <Loader2 className='size-4 animate-spin' />
-          ) : (
-            <Gauge className='size-4' />
-          )}
-        </TooltipTrigger>
-        <TooltipContent>{t('Test Connection')}</TooltipContent>
-      </Tooltip>
+      <Button
+        variant='ghost'
+        size='sm'
+        onClick={handleDirectTest}
+        disabled={isTesting}
+      >
+        {isTesting ? (
+          <Loader2 className='animate-spin' />
+        ) : (
+          <Gauge />
+        )}
+        {t('Test Connection')}
+      </Button>
 
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant='ghost'
-              size='icon-sm'
-              onClick={handleToggleStatus}
-              disabled={isTogglingStatus}
-              aria-label={isEnabled ? t('Disable') : t('Enable')}
-              className={
-                isEnabled
-                  ? 'text-destructive hover:text-destructive'
-                  : 'text-emerald-600 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-400'
-              }
-            />
-          }
-        >
-          {isTogglingStatus ? (
-            <Loader2 className='size-4 animate-spin' />
-          ) : isEnabled ? (
-            <PowerOff className='size-4' />
-          ) : (
-            <Power className='size-4' />
-          )}
-        </TooltipTrigger>
-        <TooltipContent>
-          {isEnabled ? t('Disable') : t('Enable')}
-        </TooltipContent>
-      </Tooltip>
+      <Button
+        variant='ghost'
+        size='sm'
+        onClick={handleToggleStatus}
+        disabled={isTogglingStatus}
+        className={
+          isEnabled
+            ? 'text-destructive hover:text-destructive'
+            : 'text-emerald-600 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-400'
+        }
+      >
+        {isTogglingStatus ? (
+          <Loader2 className='animate-spin' />
+        ) : isEnabled ? (
+          <PowerOff />
+        ) : (
+          <Power />
+        )}
+        {isEnabled ? t('Disable') : t('Enable')}
+      </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
             <Button
               variant='ghost'
-              className='data-popup-open:bg-muted flex h-8 w-8 p-0'
+              size='sm'
+              className='data-popup-open:bg-muted'
             />
           }
         >
-          <MoreHorizontal className='h-4 w-4' />
-          <span className='sr-only'>{t('Open menu')}</span>
+          <MoreHorizontal />
+          {t('More')}
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' className='w-48'>
           {/* Edit */}

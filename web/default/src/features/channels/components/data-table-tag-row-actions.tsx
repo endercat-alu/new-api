@@ -69,12 +69,13 @@ export function DataTableTagRowActions({ row }: DataTableTagRowActionsProps) {
         render={
           <Button
             variant='ghost'
-            className='data-popup-open:bg-muted flex h-8 w-8 p-0'
+            size='sm'
+            className='data-popup-open:bg-muted'
           />
         }
       >
-        <MoreHorizontal className='h-4 w-4' />
-        <span className='sr-only'>{t('Open menu')}</span>
+        <MoreHorizontal />
+        {t('More')}
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-48'>
         {/* Edit Tag */}

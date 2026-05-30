@@ -33,7 +33,7 @@ export const sideDrawerHeaderClassName = (className?: string) =>
 
 export const sideDrawerFormClassName = (className?: string) =>
   cn(
-    'flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5',
+    'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-4',
     className
   )
 
@@ -45,13 +45,13 @@ export const sideDrawerFooterClassName = (className?: string) =>
 
 export const sideDrawerSectionClassName = (className?: string) =>
   cn(
-    'border-border/60 flex flex-col gap-4 border-b pb-6 last:border-b-0 last:pb-0',
+    'border-border/60 flex flex-col gap-3 border-b pb-5 last:border-b-0 last:pb-0',
     className
   )
 
 export const sideDrawerSwitchItemClassName = (className?: string) =>
   cn(
-    'border-border/60 flex min-h-16 flex-row items-center justify-between gap-3 border-y py-3',
+    'border-border/60 flex min-h-12 flex-row items-center justify-between gap-3 border-y py-2.5',
     className
   )
 
@@ -80,7 +80,7 @@ export function SideDrawerSectionHeader(props: {
           'span',
           {
             className:
-              'bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-md',
+              'bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-md',
           },
           props.icon
         )

@@ -1059,7 +1059,7 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
 
         return <DataTableRowActions row={row} />
       },
-      size: 132,
+      size: 200,
       enableSorting: false,
       enableHiding: false,
     },

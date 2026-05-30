@@ -1033,10 +1033,10 @@ export function ChannelMutateDrawer({
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent className={sideDrawerContentClassName('sm:max-w-3xl')}>
+        <SheetContent className={sideDrawerContentClassName('sm:max-w-[600px]')}>
           <SheetHeader className={sideDrawerHeaderClassName()}>
             <SheetTitle className='flex items-center gap-3'>
-              <span className='bg-muted flex size-9 shrink-0 items-center justify-center rounded-md'>
+              <span className='bg-muted flex size-8 shrink-0 items-center justify-center rounded-md'>
                 {getLobeIcon(`${getChannelTypeIcon(currentType)}.Color`, 22)}
               </span>
               <span>
@@ -1061,7 +1061,7 @@ export function ChannelMutateDrawer({
             <form
               id='channel-form'
               onSubmit={form.handleSubmit(onSubmit)}
-              className={sideDrawerFormClassName('gap-5')}
+              className={sideDrawerFormClassName('gap-4')}
             >
               {isChannelDetailLoading ? (
                 <ChannelEditorLoadingState />
@@ -1868,7 +1868,7 @@ export function ChannelMutateDrawer({
                               <FormControl>
                                 <Textarea
                                   placeholder={keyPlaceholder}
-                                  rows={isBatchMode ? 8 : 4}
+                                  rows={isBatchMode ? 6 : 3}
                                   {...field}
                                 />
                               </FormControl>
@@ -2758,7 +2758,7 @@ export function ChannelMutateDrawer({
                                   value={field.value || ''}
                                   onChange={field.onChange}
                                   disabled={isSubmitting}
-                                  rows={8}
+                                  rows={6}
                                   placeholder={t(
                                     'Override request parameters. Cannot override stream parameter.'
                                   )}
@@ -2850,7 +2850,7 @@ export function ChannelMutateDrawer({
                               <FormControl>
                                 <Textarea
                                   className='font-mono text-sm'
-                                  rows={6}
+                                  rows={4}
                                   value={field.value || ''}
                                   onChange={field.onChange}
                                   disabled={isSubmitting}
