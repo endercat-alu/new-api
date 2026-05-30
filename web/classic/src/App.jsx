@@ -18,7 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { lazy, Suspense, useContext, useMemo } from 'react';
-import { Route, Routes, useLocation, useParams } from 'react-router-dom';
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+} from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
 import User from './pages/User';
 import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
@@ -59,6 +65,35 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 function DynamicOAuth2Callback() {
   const { provider } = useParams();
   return <OAuth2Callback type={provider} />;
+}
+
+// 跨主题路径重定向：当处于 classic 模式时，访问 default 前端的路径自动跳转到 classic 对应路径。
+const CROSS_THEME_REDIRECTS = [
+  ['/dashboard', '/console'],
+  ['/channels', '/console/channel'],
+  ['/keys', '/console/token'],
+  ['/usage-logs', '/console/log'],
+  ['/redemption-codes', '/console/redemption'],
+  ['/users', '/console/user'],
+  ['/wallet', '/console/topup'],
+  ['/profile', '/console/personal'],
+  ['/playground', '/console/playground'],
+  ['/models', '/console/models'],
+  ['/subscriptions', '/console/subscription'],
+  ['/sign-in', '/login'],
+  ['/sign-up', '/register'],
+  ['/forgot-password', '/reset'],
+  ['/rankings', '/pricing'],
+  ['/otp', '/'],
+];
+
+function LegacyRedirect({ to }) {
+  return <Navigate to={to} replace />;
+}
+
+function ChatRedirect() {
+  const { chatId } = useParams();
+  return <Navigate to={`/console/chat/${chatId}`} replace />;
 }
 
 function App() {
@@ -377,6 +412,18 @@ function App() {
             </PrivateRoute>
           }
         />
+        {CROSS_THEME_REDIRECTS.map(([from, to]) => (
+          <Route
+            key={from}
+            path={from}
+            element={<LegacyRedirect to={to} />}
+          />
+        ))}
+        <Route
+          path='/system-settings/*'
+          element={<LegacyRedirect to='/console/setting' />}
+        />
+        <Route path='/chat/:chatId' element={<ChatRedirect />} />
         <Route path='*' element={<NotFound />} />
       </Routes>
     </SetupCheck>
