@@ -43,6 +43,9 @@ const CONTENT_SECTIONS = [
     titleKey: 'Data Dashboard',
     build: (settings: ContentSettings) => (
       <DashboardSection
+        onboardingGuideEnabled={
+          settings['console_setting.onboarding_guide_enabled']
+        }
         defaultValues={{
           DataExportEnabled: settings.DataExportEnabled,
           DataExportInterval: settings.DataExportInterval,

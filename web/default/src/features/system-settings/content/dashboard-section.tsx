@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import * as z from 'zod'
+import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
@@ -43,6 +44,7 @@ import { Switch } from '@/components/ui/switch'
 import {
   SettingsForm,
   SettingsSwitchContent,
+  SettingsSwitchField,
   SettingsSwitchItem,
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
@@ -60,6 +62,7 @@ type DataDashboardFormValues = z.infer<typeof dataDashboardSchema>
 
 type DashboardSectionProps = {
   defaultValues: DataDashboardFormValues
+  onboardingGuideEnabled: boolean
 }
 
 const granularityOptions = [
@@ -68,9 +71,15 @@ const granularityOptions = [
   { label: 'Week', value: 'week' },
 ]
 
-export function DashboardSection({ defaultValues }: DashboardSectionProps) {
+export function DashboardSection({
+  defaultValues,
+  onboardingGuideEnabled,
+}: DashboardSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
+  const [onboardingEnabled, setOnboardingEnabled] = useState(
+    onboardingGuideEnabled
+  )
 
   const form = useForm<DataDashboardFormValues>({
     resolver: zodResolver(dataDashboardSchema),
@@ -80,6 +89,10 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
   useEffect(() => {
     form.reset(defaultValues)
   }, [defaultValues, form])
+
+  useEffect(() => {
+    setOnboardingEnabled(onboardingGuideEnabled)
+  }, [onboardingGuideEnabled])
 
   const onSubmit = async (values: DataDashboardFormValues) => {
     const updates = Object.entries(values).filter(
@@ -92,10 +105,28 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
     }
   }
 
+  const handleToggleOnboarding = async (checked: boolean) => {
+    try {
+      await updateOption.mutateAsync({
+        key: 'console_setting.onboarding_guide_enabled',
+        value: checked,
+      })
+      setOnboardingEnabled(checked)
+      toast.success(t('Setting saved'))
+    } catch {
+      toast.error(t('Failed to update setting'))
+    }
+  }
+
   const isEnabled = form.watch('DataExportEnabled')
 
   return (
     <SettingsSection title={t('Data Dashboard')}>
+      <SettingsSwitchField
+        checked={onboardingEnabled}
+        onCheckedChange={handleToggleOnboarding}
+        label={t('Show onboarding guide on dashboard')}
+      />
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions

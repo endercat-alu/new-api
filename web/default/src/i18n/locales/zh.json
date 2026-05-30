@@ -1364,6 +1364,7 @@
     "Enable All": "启用全部",
     "Enable check-in feature": "启用签到功能",
     "Enable Data Dashboard": "启用数据仪表板",
+    "Show onboarding guide on dashboard": "在仪表盘显示入门引导",
     "Enable demo mode with limited functionality": "启用功能受限的演示模式",
     "Enable Discord OAuth": "启用 Discord OAuth",
     "Enable Disk Cache": "启用磁盘缓存",

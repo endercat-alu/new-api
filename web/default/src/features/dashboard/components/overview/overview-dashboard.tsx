@@ -461,6 +461,7 @@ export function OverviewDashboard() {
     announcements: showAnnouncementsPanel,
     faq: showFAQPanel,
     uptimeKuma: showUptimePanel,
+    onboardingGuide: showOnboardingGuide,
   } = useDashboardContentVisibility()
   const [manualSetupGuideExpanded, setManualSetupGuideExpanded] = useState<
     boolean | null
@@ -609,8 +610,9 @@ export function OverviewDashboard() {
 
   return (
     <div className='flex flex-col gap-4'>
-      {setupGuideExpanded ? (
-        <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
+      {showOnboardingGuide &&
+        (setupGuideExpanded ? (
+          <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
           <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
             <div className='relative h-full overflow-hidden p-4 sm:p-5'>
               <SetupGuideBackdrop />
@@ -737,7 +739,7 @@ export function OverviewDashboard() {
             </div>
           </CardStaggerItem>
         </CardStaggerContainer>
-      )}
+      ))}
 
       <SummaryCards />
 
