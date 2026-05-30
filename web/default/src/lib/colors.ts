@@ -156,7 +156,6 @@ const TAG_COLORS = [
   'orange',
   'pink',
   'purple',
-  'red',
   'teal',
   'violet',
   'yellow',

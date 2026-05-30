@@ -137,7 +137,7 @@ export const CHANNEL_STATUS_CONFIG = {
     label: 'Enabled',
   },
   [CHANNEL_STATUS.MANUAL_DISABLED]: {
-    variant: 'danger' as const,
+    variant: 'neutral' as const,
     label: 'Disabled',
   },
   [CHANNEL_STATUS.AUTO_DISABLED]: {
@@ -172,7 +172,7 @@ export const MULTI_KEY_STATUS_CONFIG = {
     label: 'Manual Disabled',
   },
   [MULTI_KEY_STATUS.AUTO_DISABLED]: {
-    variant: 'danger' as const,
+    variant: 'warning' as const,
     label: 'Auto Disabled',
   },
 }
@@ -323,7 +323,7 @@ export const RESPONSE_TIME_CONFIG = {
   EXCELLENT: { variant: 'success' as const, label: 'Excellent' },
   GOOD: { variant: 'info' as const, label: 'Good' },
   FAIR: { variant: 'warning' as const, label: 'Fair' },
-  POOR: { variant: 'danger' as const, label: 'Poor' },
+  POOR: { variant: 'warning' as const, label: 'Poor' },
   UNKNOWN: { variant: 'neutral' as const, label: 'Not tested' },
 } as const
 

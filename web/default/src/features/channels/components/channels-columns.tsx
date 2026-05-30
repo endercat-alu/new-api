@@ -252,6 +252,7 @@ function WeightCell({ channel }: { channel: Channel }) {
             setConfirmOpen(true)
           }}
           min={0}
+          className='text-muted-foreground'
         />
         <ConfirmDialog
           open={confirmOpen}
@@ -278,6 +279,7 @@ function WeightCell({ channel }: { channel: Channel }) {
         handleUpdateChannelField(channel.id, 'weight', value, queryClient)
       }}
       min={0}
+      className='text-muted-foreground'
     />
   )
 }
@@ -658,7 +660,7 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
               </TooltipProvider>
             )}
             <StatusBadge
-              autoColor={typeName}
+              variant='neutral'
               size='sm'
               copyable={false}
               showDot={false}

@@ -383,6 +383,7 @@ export function ChannelsTable() {
       )}
       skeletonKeyPrefix='channel-skeleton'
       applyHeaderSize
+      tableHeaderClassName='[&_th]:font-semibold [&_button]:font-semibold'
       toolbarProps={{
         searchPlaceholder: t('Filter by name, ID, or key...'),
         additionalSearch: (

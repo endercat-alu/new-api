@@ -317,7 +317,7 @@ export function getBalanceVariant(
   balance: number
 ): 'success' | 'warning' | 'danger' | 'neutral' {
   if (balance === 0) return 'neutral'
-  if (balance < 1) return 'danger'
+  if (balance < 1) return 'warning'
   if (balance < 10) return 'warning'
   return 'success'
 }
