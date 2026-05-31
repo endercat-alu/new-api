@@ -50,7 +50,6 @@ import { DataTableColumnHeader } from '@/components/data-table/column-header'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge, StatusBadgeList } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
-import { TruncatedText } from '@/components/truncated-text'
 import { getCodexUsage } from '../api'
 import { CHANNEL_STATUS_CONFIG, MODEL_FETCHABLE_TYPES } from '../constants'
 import {
@@ -542,11 +541,12 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
           <div className='flex items-center gap-2'>
             <div className='flex flex-col gap-1'>
               <div className='flex items-center gap-1.5'>
-                <TruncatedText
-                  text={name}
-                  className='font-medium'
-                  maxWidth='max-w-[180px]'
-                />
+                <span
+                  className='line-clamp-2 max-w-[240px] font-medium break-words whitespace-normal'
+                  title={name}
+                >
+                  {name}
+                </span>
                 {isPassThrough && (
                   <TooltipProvider delay={100}>
                     <Tooltip>
@@ -1058,6 +1058,12 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
         }
 
         return <DataTableRowActions row={row} />
+      },
+      meta: {
+        headClassName:
+          'bg-background sticky right-0 z-20 border-l shadow-[-8px_0_8px_-8px_rgb(0_0_0_/_0.2)]',
+        cellClassName:
+          'bg-background sticky right-0 z-20 border-l shadow-[-8px_0_8px_-8px_rgb(0_0_0_/_0.2)]',
       },
       size: 200,
       enableSorting: false,

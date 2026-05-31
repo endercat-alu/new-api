@@ -316,6 +316,7 @@ function renderDesktop<TData>(
                 <TableHead
                   key={header.id}
                   colSpan={header.colSpan}
+                  className={cn(header.column.columnDef.meta?.headClassName)}
                   style={
                     props.applyHeaderSize
                       ? { width: header.getSize() }
@@ -381,7 +382,10 @@ function DefaultRow<TData>({
       className={className}
     >
       {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
+        <TableCell
+          key={cell.id}
+          className={cn(cell.column.columnDef.meta?.cellClassName)}
+        >
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
         </TableCell>
       ))}

@@ -78,6 +78,10 @@ export function ChannelsTable() {
   const { t } = useTranslation()
   const { enableTagMode, idSort } = useChannels()
   const isMobile = useMediaQuery('(max-width: 640px)')
+  // Narrow desktop/tablet widths: hide low-priority columns so the table fits
+  // without horizontal scrolling. Restored on xl screens; users can still
+  // re-enable columns via the view options menu.
+  const isCompact = useMediaQuery('(max-width: 1279px)')
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([])
@@ -85,6 +89,15 @@ export function ChannelsTable() {
     models: false,
     tag: false,
   })
+
+  useEffect(() => {
+    setColumnVisibility((prev) => ({
+      ...prev,
+      weight: !isCompact,
+      response_time: !isCompact,
+      test_time: !isCompact,
+    }))
+  }, [isCompact])
   const [rowSelection, setRowSelection] = useState({})
   const [expanded, setExpanded] = useState<ExpandedState>({})
 

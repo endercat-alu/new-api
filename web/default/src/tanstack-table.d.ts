@@ -29,5 +29,9 @@ declare module '@tanstack/react-table' {
     sortable?: boolean
     // Custom CSS classes to apply to the column cells
     className?: string
+    // Custom CSS classes applied to this column's header <th>
+    headClassName?: string
+    // Custom CSS classes applied to this column's body <td>
+    cellClassName?: string
   }
 }
