@@ -123,6 +123,13 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		return
 	}
 
+	// 数据脱敏：对入站请求内容识别并掩码敏感凭证（API key / 私钥 / 证书等）后再转发上游
+	if setting.MaskSecretsEnabled {
+		if changed, rules := service.MaskRequestSecrets(relayInfo.Request); changed {
+			logger.LogInfo(c, fmt.Sprintf("masked sensitive secrets in request: %s", strings.Join(rules, ", ")))
+		}
+	}
+
 	needSensitiveCheck := setting.ShouldCheckPromptSensitive()
 	needCountToken := constant.CountToken
 	// Avoid building huge CombineText (strings.Join) when token counting and sensitive check are both disabled.

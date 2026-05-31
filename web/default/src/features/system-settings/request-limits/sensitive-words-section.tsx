@@ -44,6 +44,7 @@ import { useUpdateOption } from '../hooks/use-update-option'
 const sensitiveSchema = z.object({
   CheckSensitiveEnabled: z.boolean(),
   CheckSensitiveOnPromptEnabled: z.boolean(),
+  MaskSecretsEnabled: z.boolean(),
   SensitiveWords: z.string().optional(),
 })
 
@@ -87,40 +88,116 @@ export function SensitiveWordsSection({
             isSaving={updateOption.isPending}
             saveLabel='Save sensitive words'
           />
-          <div className='space-y-4'>
-            <FormField
-              control={form.control}
-              name='CheckSensitiveEnabled'
-              render={({ field }) => (
-                <SettingsSwitchItem>
-                  <SettingsSwitchContent>
-                    <FormLabel>{t('Enable filtering')}</FormLabel>
-                    <FormDescription>
-                      {t(
-                        'Blocks messages when sensitive keywords are detected.'
-                      )}
-                    </FormDescription>
-                  </SettingsSwitchContent>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </SettingsSwitchItem>
-              )}
-            />
+
+          {/* 敏感词过滤：拦截违规内容 */}
+          <div data-settings-form-span='full' className='space-y-4'>
+            <div className='space-y-0.5'>
+              <h4 className='text-sm font-semibold'>
+                {t('Sensitive Word Filtering')}
+              </h4>
+              <p className='text-muted-foreground text-xs'>
+                {t('Block requests that contain configured keywords.')}
+              </p>
+            </div>
+
+            <div className='space-y-4'>
+              <FormField
+                control={form.control}
+                name='CheckSensitiveEnabled'
+                render={({ field }) => (
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>{t('Enable filtering')}</FormLabel>
+                      <FormDescription>
+                        {t(
+                          'Blocks messages when sensitive keywords are detected.'
+                        )}
+                      </FormDescription>
+                    </SettingsSwitchContent>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </SettingsSwitchItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='CheckSensitiveOnPromptEnabled'
+                render={({ field }) => (
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>{t('Inspect user prompts')}</FormLabel>
+                      <FormDescription>
+                        {t(
+                          'When enabled, prompts are scanned before reaching upstream models.'
+                        )}
+                      </FormDescription>
+                    </SettingsSwitchContent>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </SettingsSwitchItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}
-              name='CheckSensitiveOnPromptEnabled'
+              name='SensitiveWords'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Blocked keywords')}</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={12}
+                      placeholder={t('Enter one keyword per line')}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Each line represents one keyword. Leave blank to disable the list but keep the switch states.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* 凭证脱敏：防止用户密钥外泄给上游，与敏感词过滤相互独立 */}
+          <div
+            data-settings-form-span='full'
+            className='space-y-4 border-t pt-6'
+          >
+            <div className='space-y-0.5'>
+              <h4 className='text-sm font-semibold'>
+                {t('Credential Masking')}
+              </h4>
+              <p className='text-muted-foreground text-xs'>
+                {t(
+                  'Protect user-supplied secrets from being forwarded upstream.'
+                )}
+              </p>
+            </div>
+
+            <FormField
+              control={form.control}
+              name='MaskSecretsEnabled'
               render={({ field }) => (
                 <SettingsSwitchItem>
                   <SettingsSwitchContent>
-                    <FormLabel>{t('Inspect user prompts')}</FormLabel>
+                    <FormLabel>{t('Mask credentials in requests')}</FormLabel>
                     <FormDescription>
                       {t(
-                        'When enabled, prompts are scanned before reaching upstream models.'
+                        'Detect and mask API keys, private keys and certificates in request content (including tool call arguments and results) before forwarding upstream.'
                       )}
                     </FormDescription>
                   </SettingsSwitchContent>
@@ -134,29 +211,6 @@ export function SensitiveWordsSection({
               )}
             />
           </div>
-
-          <FormField
-            control={form.control}
-            name='SensitiveWords'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Blocked keywords')}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={12}
-                    placeholder={t('Enter one keyword per line')}
-                    {...field}
-                  />
-                </FormControl>
-                <FormDescription>
-                  {t(
-                    'Each line represents one keyword. Leave blank to disable the list but keep the switch states.'
-                  )}
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
         </SettingsForm>
       </Form>
     </SettingsSection>

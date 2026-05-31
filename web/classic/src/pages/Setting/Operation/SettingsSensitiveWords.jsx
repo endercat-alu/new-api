@@ -35,12 +35,16 @@ export default function SettingsSensitiveWords(props) {
     CheckSensitiveEnabled: false,
     CheckSensitiveOnPromptEnabled: false,
     SensitiveWords: '',
+    MaskSecretsEnabled: false,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
 
-  function onSubmit() {
-    const updateArray = compareObjects(inputs, inputsRow);
+  // 仅保存指定字段的改动：屏蔽词过滤与凭证脱敏各自独立保存，互不影响
+  function saveKeys(keys) {
+    const updateArray = compareObjects(inputs, inputsRow).filter((item) =>
+      keys.includes(item.key),
+    );
     if (!updateArray.length) return showWarning(t('你似乎并没有修改什么'));
     const requestQueue = updateArray.map((item) => {
       let value = '';
@@ -145,8 +149,48 @@ export default function SettingsSensitiveWords(props) {
               </Col>
             </Row>
             <Row>
-              <Button size='default' onClick={onSubmit}>
+              <Button
+                size='default'
+                onClick={() =>
+                  saveKeys([
+                    'CheckSensitiveEnabled',
+                    'CheckSensitiveOnPromptEnabled',
+                    'SensitiveWords',
+                  ])
+                }
+              >
                 {t('保存屏蔽词过滤设置')}
+              </Button>
+            </Row>
+          </Form.Section>
+
+          <Form.Section text={t('凭证脱敏')}>
+            <Row gutter={16}>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Switch
+                  field={'MaskSecretsEnabled'}
+                  label={t('启用凭证脱敏')}
+                  extraText={t(
+                    '转发上游前，检测并掩码请求内容（包括工具调用参数与结果）中的 API 密钥、私钥和证书',
+                  )}
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={(value) => {
+                    setInputs({
+                      ...inputs,
+                      MaskSecretsEnabled: value,
+                    });
+                  }}
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Button
+                size='default'
+                onClick={() => saveKeys(['MaskSecretsEnabled'])}
+              >
+                {t('保存凭证脱敏设置')}
               </Button>
             </Row>
           </Form.Section>
