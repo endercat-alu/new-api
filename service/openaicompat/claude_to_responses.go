@@ -179,7 +179,75 @@ func ClaudeRequestToResponsesRequest(req *dto.ClaudeRequest, info *relaycommon.R
 		out.StreamOptions = &dto.StreamOptions{IncludeUsage: true}
 	}
 
+	applyClaudePromptCacheRetention(req, out)
+
 	return out, nil
+}
+
+func applyClaudePromptCacheRetention(req *dto.ClaudeRequest, out *dto.OpenAIResponsesRequest) {
+	if req == nil || out == nil || len(out.PromptCacheRetention) > 0 {
+		return
+	}
+
+	retention := claudePromptCacheRetention(req)
+	if retention == "" {
+		return
+	}
+	out.PromptCacheRetention, _ = common.Marshal(retention)
+}
+
+func claudePromptCacheRetention(req *dto.ClaudeRequest) string {
+	retention := claudeCacheControlRetention(req.CacheControl)
+	if retention == "24h" {
+		return retention
+	}
+
+	if req.System != nil && !req.IsStringSystem() {
+		for _, system := range req.ParseSystem() {
+			blockRetention := claudeCacheControlRetention(system.CacheControl)
+			if blockRetention == "24h" {
+				return blockRetention
+			}
+			if blockRetention != "" {
+				retention = blockRetention
+			}
+		}
+	}
+
+	for _, msg := range req.Messages {
+		if msg.IsStringContent() {
+			continue
+		}
+		contents, err := msg.ParseContent()
+		if err != nil {
+			continue
+		}
+		for _, part := range contents {
+			blockRetention := claudeCacheControlRetention(part.CacheControl)
+			if blockRetention == "24h" {
+				return blockRetention
+			}
+			if blockRetention != "" {
+				retention = blockRetention
+			}
+		}
+	}
+
+	return retention
+}
+
+func claudeCacheControlRetention(cacheControl json.RawMessage) string {
+	if len(cacheControl) == 0 {
+		return ""
+	}
+
+	var meta struct {
+		TTL string `json:"ttl"`
+	}
+	if err := common.Unmarshal(cacheControl, &meta); err == nil && meta.TTL == "1h" {
+		return "24h"
+	}
+	return "in_memory"
 }
 
 func toJSONString(v any) string {
