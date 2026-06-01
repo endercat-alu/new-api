@@ -9,6 +9,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRequestOpenAI2ClaudeMessagePreservesToolStrict(t *testing.T) {
+	strict := false
+	request := dto.GeneralOpenAIRequest{
+		Model: "claude-3-5-sonnet",
+		Messages: []dto.Message{
+			{Role: "user", Content: "hello"},
+		},
+		Tools: []dto.ToolCallRequest{
+			{
+				Type: "function",
+				Function: dto.FunctionRequest{
+					Name:        "get_weather",
+					Description: "Get weather",
+					Parameters:  map[string]any{"type": "object"},
+					Strict:      &strict,
+				},
+			},
+		},
+	}
+
+	claudeRequest, err := RequestOpenAI2ClaudeMessage(nil, request)
+	require.NoError(t, err)
+	require.Len(t, claudeRequest.GetTools(), 1)
+
+	tool, ok := claudeRequest.GetTools()[0].(*dto.Tool)
+	require.True(t, ok)
+	require.NotNil(t, tool.Strict)
+	require.Equal(t, strict, *tool.Strict)
+}
+
 func TestFormatClaudeResponseInfo_MessageStart(t *testing.T) {
 	claudeInfo := &ClaudeResponseInfo{
 		Usage: &dto.Usage{},

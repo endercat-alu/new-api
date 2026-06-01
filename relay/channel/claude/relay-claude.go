@@ -52,6 +52,7 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 			claudeTool := dto.Tool{
 				Name:        tool.Function.Name,
 				Description: tool.Function.Description,
+				Strict:      tool.Function.Strict,
 			}
 			claudeTool.InputSchema = make(map[string]interface{})
 			if params["type"] != nil {

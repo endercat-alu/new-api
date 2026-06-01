@@ -82,6 +82,7 @@ func ClaudeToOpenAIRequest(claudeRequest dto.ClaudeRequest, info *relaycommon.Re
 				Name:        claudeTool.Name,
 				Description: claudeTool.Description,
 				Parameters:  claudeTool.InputSchema,
+				Strict:      claudeTool.Strict,
 			},
 		}
 		openAITools = append(openAITools, openAITool)

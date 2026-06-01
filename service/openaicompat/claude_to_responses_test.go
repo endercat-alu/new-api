@@ -8,6 +8,66 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestClaudeRequestToResponsesRequestPreservesToolStrict(t *testing.T) {
+	for _, strict := range []bool{true, false} {
+		req := &dto.ClaudeRequest{
+			Model: "claude-sonnet-4-5",
+			Messages: []dto.ClaudeMessage{
+				{Role: "user", Content: "hello"},
+			},
+			Tools: []dto.Tool{
+				{
+					Name:        "get_weather",
+					Description: "Get weather",
+					InputSchema: map[string]interface{}{"type": "object"},
+					Strict:      &strict,
+				},
+			},
+		}
+
+		out, err := ClaudeRequestToResponsesRequest(req, nil)
+		require.NoError(t, err)
+
+		var tools []map[string]any
+		require.NoError(t, common.Unmarshal(out.Tools, &tools))
+		require.Len(t, tools, 1)
+		require.Equal(t, strict, tools[0]["strict"])
+	}
+}
+
+func TestClaudeRequestToResponsesRequestNormalizesSmallMaxTokens(t *testing.T) {
+	maxTokens := uint(1)
+	req := &dto.ClaudeRequest{
+		Model:     "claude-sonnet-4-5",
+		MaxTokens: &maxTokens,
+		Messages: []dto.ClaudeMessage{
+			{Role: "user", Content: "hello"},
+		},
+	}
+
+	out, err := ClaudeRequestToResponsesRequest(req, nil)
+	require.NoError(t, err)
+	require.NotNil(t, out.MaxOutputTokens)
+	require.Equal(t, uint(16), *out.MaxOutputTokens)
+}
+
+func TestClaudeRequestToResponsesRequestRaisesThinkingMaxTokensFloor(t *testing.T) {
+	maxTokens := uint(16)
+	req := &dto.ClaudeRequest{
+		Model:     "claude-sonnet-4-5",
+		MaxTokens: &maxTokens,
+		Thinking:  &dto.Thinking{Type: "adaptive"},
+		Messages: []dto.ClaudeMessage{
+			{Role: "user", Content: "hello"},
+		},
+	}
+
+	out, err := ClaudeRequestToResponsesRequest(req, nil)
+	require.NoError(t, err)
+	require.NotNil(t, out.MaxOutputTokens)
+	require.Equal(t, uint(1024), *out.MaxOutputTokens)
+}
+
 func TestClaudeRequestToResponsesRequestDoesNotMapStopSequencesToTruncation(t *testing.T) {
 	req := &dto.ClaudeRequest{
 		Model:         "claude-sonnet-4-5",

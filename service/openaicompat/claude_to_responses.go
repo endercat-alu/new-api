@@ -125,12 +125,16 @@ func ClaudeRequestToResponsesRequest(req *dto.ClaudeRequest, info *relaycommon.R
 		tools, _ := common.Any2Type[[]dto.Tool](req.Tools)
 		responsesTools := make([]map[string]any, 0, len(tools))
 		for _, tool := range tools {
-			responsesTools = append(responsesTools, map[string]any{
+			responsesTool := map[string]any{
 				"type":        "function",
 				"name":        tool.Name,
 				"description": tool.Description,
 				"parameters":  tool.InputSchema,
-			})
+			}
+			if tool.Strict != nil {
+				responsesTool["strict"] = *tool.Strict
+			}
+			responsesTools = append(responsesTools, responsesTool)
 		}
 		toolsRaw, _ = common.Marshal(responsesTools)
 	}
@@ -154,7 +158,7 @@ func ClaudeRequestToResponsesRequest(req *dto.ClaudeRequest, info *relaycommon.R
 		Model:           req.Model,
 		Input:           inputRaw,
 		Instructions:    instructionsRaw,
-		MaxOutputTokens: req.MaxTokens,
+		MaxOutputTokens: normalizeResponsesMaxOutputTokens(req.MaxTokens, req.Thinking != nil),
 		Stream:          req.Stream,
 		Temperature:     req.Temperature,
 		ToolChoice:      toolChoiceRaw,
@@ -182,6 +186,20 @@ func ClaudeRequestToResponsesRequest(req *dto.ClaudeRequest, info *relaycommon.R
 	applyClaudePromptCacheRetention(req, out)
 
 	return out, nil
+}
+
+func normalizeResponsesMaxOutputTokens(maxTokens *uint, hasReasoning bool) *uint {
+	if maxTokens == nil {
+		return nil
+	}
+	value := *maxTokens
+	if value > 0 && hasReasoning && value < 1024 {
+		return common.GetPointer(uint(1024))
+	}
+	if value > 0 && value < 16 {
+		return common.GetPointer(uint(16))
+	}
+	return maxTokens
 }
 
 func applyClaudePromptCacheRetention(req *dto.ClaudeRequest, out *dto.OpenAIResponsesRequest) {
