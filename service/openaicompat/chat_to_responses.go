@@ -35,6 +35,14 @@ func normalizeChatImageURLToString(v any) any {
 	}
 }
 
+func stringRawMessage(value string) json.RawMessage {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	raw, _ := common.Marshal(value)
+	return raw
+}
+
 func convertChatResponseFormatToResponsesText(reqFormat *dto.ResponseFormat) json.RawMessage {
 	if reqFormat == nil || strings.TrimSpace(reqFormat.Type) == "" {
 		return nil
@@ -390,6 +398,7 @@ func ChatCompletionsRequestToResponsesRequest(req *dto.GeneralOpenAIRequest) (*d
 		ParallelToolCalls: parallelToolCallsRaw,
 		Store:             req.Store,
 		Metadata:          req.Metadata,
+		PromptCacheKey:    stringRawMessage(req.PromptCacheKey),
 	}
 	if req.MaxTokens != nil || req.MaxCompletionTokens != nil {
 		out.MaxOutputTokens = normalizeResponsesMaxOutputTokens(lo.ToPtr(maxOutputTokens), req.ReasoningEffort != "")

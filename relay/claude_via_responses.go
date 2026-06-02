@@ -58,6 +58,11 @@ func claudeViaResponses(c *gin.Context, info *relaycommon.RelayInfo, adaptor cha
 		}
 	}
 
+	jsonData, err = applyResponsesPromptCacheKey(jsonData, info)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+	}
+
 	logResponsesCacheDebug(c, "claude_via_responses", jsonData)
 	body, size, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
 	if err != nil {

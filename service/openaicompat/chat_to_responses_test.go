@@ -53,3 +53,17 @@ func TestChatCompletionsRequestToResponsesRequestRaisesReasoningMaxTokensFloor(t
 	require.NotNil(t, out.MaxOutputTokens)
 	require.Equal(t, uint(1024), *out.MaxOutputTokens)
 }
+
+func TestChatCompletionsRequestToResponsesRequestPreservesPromptCacheKey(t *testing.T) {
+	req := &dto.GeneralOpenAIRequest{
+		Model:          "gpt-5",
+		PromptCacheKey: "explicit-key",
+		Messages: []dto.Message{
+			{Role: "user", Content: "hello"},
+		},
+	}
+
+	out, err := ChatCompletionsRequestToResponsesRequest(req)
+	require.NoError(t, err)
+	require.Equal(t, "explicit-key", common.JsonRawMessageToString(out.PromptCacheKey))
+}
