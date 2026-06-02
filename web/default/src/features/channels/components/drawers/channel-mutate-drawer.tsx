@@ -122,6 +122,7 @@ import {
   FIELD_DESCRIPTIONS,
   FIELD_PLACEHOLDERS,
   MODEL_FETCHABLE_TYPES,
+  OPENAI_COMPATIBLE_CHANNEL_TYPES,
 } from '../../constants'
 import { useChannelMutateForm } from '../../hooks/use-channel-mutate-form'
 import {
@@ -1169,6 +1170,63 @@ export function ChannelMutateDrawer({
                           {t(CHANNEL_TYPE_WARNINGS[currentType])}
                         </AlertDescription>
                       </Alert>
+                    )}
+
+                    {OPENAI_COMPATIBLE_CHANNEL_TYPES.has(currentType) && (
+                      <FormField
+                        control={form.control}
+                        name='openai_compat_mode'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('Interface format')}</FormLabel>
+                            <Select
+                              items={[
+                                {
+                                  value: 'global',
+                                  label: t('Follow global policy'),
+                                },
+                                {
+                                  value: 'chat',
+                                  label: t('Chat Completions'),
+                                },
+                                {
+                                  value: 'responses',
+                                  label: t('Responses'),
+                                },
+                              ]}
+                              onValueChange={field.onChange}
+                              value={field.value || 'global'}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue
+                                    placeholder={t('Select interface format')}
+                                  />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent alignItemWithTrigger={false}>
+                                <SelectGroup>
+                                  <SelectItem value='global'>
+                                    {t('Follow global policy')}
+                                  </SelectItem>
+                                  <SelectItem value='chat'>
+                                    {t('Chat Completions')}
+                                  </SelectItem>
+                                  <SelectItem value='responses'>
+                                    {t('Responses')}
+                                  </SelectItem>
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              {t(
+                                'Control whether this channel converts Chat Completions requests to OpenAI Responses format.'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
 
                     {/* Azure (type 3) */}

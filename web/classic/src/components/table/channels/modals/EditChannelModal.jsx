@@ -134,6 +134,10 @@ const MODEL_FETCHABLE_TYPES = new Set([
   1, 4, 14, 34, 17, 26, 27, 24, 47, 25, 20, 23, 31, 40, 42, 48, 43,
 ]);
 
+const OPENAI_COMPATIBLE_TYPES = new Set([
+  1, 3, 6, 7, 8, 10, 12, 13, 19, 20, 22, 25, 31, 40, 43, 45, 47, 48, 55, 57,
+]);
+
 function type2secretPrompt(type) {
   // inputs.type === 15 ? '按照如下格式输入：APIKey|SecretKey' : (inputs.type === 18 ? '按照如下格式输入：APPID|APISecret|APIKey' : '请输入渠道对应的鉴权密钥')
   switch (type) {
@@ -200,6 +204,7 @@ const EditChannelModal = (props) => {
     vertex_key_type: 'json',
     // 仅 AWS: 密钥格式和区域（存入 settings.aws_key_type 和 settings.aws_region）
     aws_key_type: 'ak_sk',
+    openai_compat_mode: 'global',
     // 企业账户设置
     is_enterprise_account: false,
     // 字段透传控制默认值
@@ -897,6 +902,11 @@ const EditChannelModal = (props) => {
           data.vertex_key_type = parsedSettings.vertex_key_type || 'json';
           // 读取 AWS 密钥格式和区域
           data.aws_key_type = parsedSettings.aws_key_type || 'ak_sk';
+          data.openai_compat_mode = ['chat', 'responses'].includes(
+            parsedSettings.openai_compat_mode,
+          )
+            ? parsedSettings.openai_compat_mode
+            : 'global';
           // 读取企业账户设置
           data.is_enterprise_account =
             parsedSettings.openrouter_enterprise === true;
@@ -933,6 +943,7 @@ const EditChannelModal = (props) => {
           data.region = '';
           data.vertex_key_type = 'json';
           data.aws_key_type = 'ak_sk';
+          data.openai_compat_mode = 'global';
           data.is_enterprise_account = false;
           data.allow_service_tier = false;
           data.disable_store = false;
@@ -951,6 +962,7 @@ const EditChannelModal = (props) => {
         // 兼容历史数据：老渠道没有 settings 时，默认按 json 展示
         data.vertex_key_type = 'json';
         data.aws_key_type = 'ak_sk';
+        data.openai_compat_mode = 'global';
         data.is_enterprise_account = false;
         data.allow_service_tier = false;
         data.disable_store = false;
@@ -1785,6 +1797,12 @@ const EditChannelModal = (props) => {
       delete settings.vertex_key_type;
     }
 
+    if (OPENAI_COMPATIBLE_TYPES.has(localInputs.type)) {
+      settings.openai_compat_mode = localInputs.openai_compat_mode || 'global';
+    } else if ('openai_compat_mode' in settings) {
+      delete settings.openai_compat_mode;
+    }
+
     // type === 1 (OpenAI) 或 type === 14 (Claude): 设置字段透传控制（显式保存布尔值）
     if (localInputs.type === 1 || localInputs.type === 14) {
       settings.allow_service_tier = localInputs.allow_service_tier === true;
@@ -1840,6 +1858,7 @@ const EditChannelModal = (props) => {
     delete localInputs.vertex_key_type;
     // 顶层的 aws_key_type 不应发送给后端
     delete localInputs.aws_key_type;
+    delete localInputs.openai_compat_mode;
     // 清理字段透传控制的临时字段
     delete localInputs.allow_service_tier;
     delete localInputs.disable_store;
@@ -2635,6 +2654,30 @@ const EditChannelModal = (props) => {
                         className='mb-4 rounded-xl'
                         description={t(
                           '免责声明：仅限个人使用，请勿分发或共享任何凭证。该渠道存在前置条件与使用门槛，请在充分了解流程与风险后使用，并遵守 OpenAI 的相关条款与政策。相关凭证与配置仅限接入 Codex CLI 使用，不适用于其他客户端、平台或渠道。',
+                        )}
+                      />
+                    )}
+
+                    {OPENAI_COMPATIBLE_TYPES.has(inputs.type) && (
+                      <Form.Select
+                        field='openai_compat_mode'
+                        label={t('接口格式')}
+                        placeholder={t('请选择接口格式')}
+                        optionList={[
+                          { label: t('跟随全局策略'), value: 'global' },
+                          { label: 'Chat Completions', value: 'chat' },
+                          { label: 'Responses', value: 'responses' },
+                        ]}
+                        style={{ width: '100%' }}
+                        value={inputs.openai_compat_mode || 'global'}
+                        onChange={(value) =>
+                          handleChannelOtherSettingsChange(
+                            'openai_compat_mode',
+                            value,
+                          )
+                        }
+                        extraText={t(
+                          '控制该渠道收到 Chat Completions 请求时是否转换为 OpenAI Responses 格式。',
                         )}
                       />
                     )}

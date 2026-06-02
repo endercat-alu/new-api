@@ -103,6 +103,10 @@ export const CHANNEL_TYPE_OPTIONS: { value: number; label: string }[] = (() => {
   return ordered
 })()
 
+export const OPENAI_COMPATIBLE_CHANNEL_TYPES = new Set<number>([
+  1, 3, 6, 7, 8, 10, 12, 13, 19, 20, 22, 25, 31, 40, 43, 45, 47, 48, 55, 57,
+])
+
 // ============================================================================
 // Channel Status (label values are i18n keys; use t(config.label) in components)
 // ============================================================================
