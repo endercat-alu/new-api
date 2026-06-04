@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -386,24 +387,47 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 						if source == nil {
 							continue
 						}
-						base64Data, mimeType, err := service.GetBase64Data(c, source, "formatting image for Claude")
+						base64Data, mimeType, err := service.GetBase64Data(c, source, "formatting file for Claude")
 						if err != nil {
 							return nil, fmt.Errorf("get file data failed: %s", err.Error())
 						}
-						claudeMediaMessage := dto.ClaudeMediaMessage{
-							Source: &dto.ClaudeMessageSource{
-								Type: "base64",
-							},
-						}
-						if strings.HasPrefix(mimeType, "application/pdf") {
-							claudeMediaMessage.Type = "document"
-						} else {
-							claudeMediaMessage.Type = "image"
-						}
 
-						claudeMediaMessage.Source.MediaType = mimeType
-						claudeMediaMessage.Source.Data = base64Data
-						claudeMediaMessages = append(claudeMediaMessages, claudeMediaMessage)
+						// 根据 MIME 类型处理文件
+						if strings.HasPrefix(mimeType, "application/pdf") {
+							// PDF 文件转为 document
+							claudeMediaMessage := dto.ClaudeMediaMessage{
+								Type: "document",
+								Source: &dto.ClaudeMessageSource{
+									Type:      "base64",
+									MediaType: mimeType,
+									Data:      base64Data,
+								},
+							}
+							claudeMediaMessages = append(claudeMediaMessages, claudeMediaMessage)
+						} else if strings.HasPrefix(mimeType, "image/") {
+							// 图片文件转为 image
+							claudeMediaMessage := dto.ClaudeMediaMessage{
+								Type: "image",
+								Source: &dto.ClaudeMessageSource{
+									Type:      "base64",
+									MediaType: mimeType,
+									Data:      base64Data,
+								},
+							}
+							claudeMediaMessages = append(claudeMediaMessages, claudeMediaMessage)
+						} else if strings.HasPrefix(mimeType, "text/") {
+							// 纯文本文件解码为文本内容
+							textBytes, decodeErr := base64.StdEncoding.DecodeString(base64Data)
+							if decodeErr == nil {
+								textContent := string(textBytes)
+								claudeMediaMessages = append(claudeMediaMessages, dto.ClaudeMediaMessage{
+									Type: "text",
+									Text: common.GetPointer[string](textContent),
+								})
+							}
+							// 解码失败则跳过
+						}
+						// 其他类型的文件（如 application/octet-stream）被忽略
 						continue
 					}
 				}

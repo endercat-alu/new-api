@@ -324,7 +324,7 @@ func TestRequestOpenAI2ClaudeMessage_IgnoresUnsupportedFileContent(t *testing.T)
 						Type: dto.ContentTypeFile,
 						File: &dto.MessageFile{
 							FileName: "blob.bin",
-							FileData: "JVBERi0xLjQK",
+							FileData: base64.StdEncoding.EncodeToString([]byte("random binary data\x00\x01\x02")),
 						},
 					},
 				},

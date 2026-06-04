@@ -369,6 +369,20 @@ func loadFromBase64(base64String string, providedMimeType string) (*types.Cached
 		cachedData = types.NewMemoryCachedData(cleanBase64, mimeType, int64(len(decodedData)))
 	}
 
+	// 如果 MIME 类型为空，尝试检测
+	if mimeType == "" {
+		detected := http.DetectContentType(decodedData)
+		if detected != "" && detected != "application/octet-stream" {
+			// 去除可能的 charset 参数
+			if idx := strings.Index(detected, ";"); idx != -1 {
+				detected = strings.TrimSpace(detected[:idx])
+			}
+			cachedData.MimeType = detected
+			mimeType = detected
+		}
+	}
+
+	// 对于图片类型，尝试获取详细配置
 	if mimeType == "" || strings.HasPrefix(mimeType, "image/") {
 		config, format, err := decodeImageConfig(decodedData)
 		if err == nil {
