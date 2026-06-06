@@ -41,6 +41,23 @@ func ShouldCopyUpstreamHeader(c *gin.Context, k string, v []string) bool {
 	return true
 }
 
+// ValidateResponseBody checks if the response body is valid (non-empty for 2xx status codes).
+// Returns an error if the upstream returned an empty body with a successful status code.
+func ValidateResponseBody(resp *http.Response, body []byte) error {
+	if resp == nil {
+		return fmt.Errorf("response is nil")
+	}
+
+	// For 2xx status codes, response body should not be empty
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if len(body) == 0 {
+			return fmt.Errorf("upstream returned empty response body with status %d", resp.StatusCode)
+		}
+	}
+
+	return nil
+}
+
 func IOCopyBytesGracefully(c *gin.Context, src *http.Response, data []byte) {
 	if c.Writer == nil {
 		return

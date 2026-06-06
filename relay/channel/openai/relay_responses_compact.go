@@ -20,6 +20,11 @@ func OaiResponsesCompactionHandler(c *gin.Context, resp *http.Response) (*dto.Us
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
 
+	// Check if response body is empty for successful status codes
+	if err := service.ValidateResponseBody(resp, responseBody); err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeEmptyResponse, http.StatusBadGateway)
+	}
+
 	var compactResp dto.OpenAIResponsesCompactionResponse
 	if err := common.Unmarshal(responseBody, &compactResp); err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)

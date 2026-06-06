@@ -197,6 +197,12 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
+
+	// Check if response body is empty for successful status codes
+	if err := service.ValidateResponseBody(resp, responseBody); err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeEmptyResponse, http.StatusBadGateway)
+	}
+
 	logger.LogDebug(c, "upstream response body: %s", responseBody)
 	// Unmarshal to simpleResponse
 	if info.ChannelType == constant.ChannelTypeOpenRouter && info.ChannelOtherSettings.IsOpenRouterEnterprise() {
@@ -558,6 +564,11 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
+	}
+
+	// Check if response body is empty for successful status codes
+	if err := service.ValidateResponseBody(resp, responseBody); err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeEmptyResponse, http.StatusBadGateway)
 	}
 
 	var usageResp dto.SimpleResponse

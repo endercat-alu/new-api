@@ -121,6 +121,12 @@ func OpenaiSTTHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	if err != nil {
 		return types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError), nil
 	}
+
+	// Check if response body is empty for successful status codes
+	if err := service.ValidateResponseBody(resp, responseBody); err != nil {
+		return types.NewOpenAIError(err, types.ErrorCodeEmptyResponse, http.StatusBadGateway), nil
+	}
+
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 

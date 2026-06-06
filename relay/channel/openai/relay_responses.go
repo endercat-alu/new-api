@@ -26,6 +26,12 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
+
+	// Check if response body is empty for successful status codes
+	if err := service.ValidateResponseBody(resp, responseBody); err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeEmptyResponse, http.StatusBadGateway)
+	}
+
 	err = common.Unmarshal(responseBody, &responsesResponse)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
