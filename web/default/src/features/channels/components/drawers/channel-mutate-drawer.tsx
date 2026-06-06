@@ -143,10 +143,7 @@ import {
   validateModelMappingJson,
   hasAdvancedSettingsErrors,
 } from '../../lib'
-import {
-  collectInvalidStatusCodeEntries,
-  collectNewDisallowedStatusCodeRedirects,
-} from '../../lib/status-code-risk-guard'
+import { collectInvalidStatusCodeEntries } from '../../lib/status-code-risk-guard'
 import type { Channel } from '../../types'
 import { useChannels } from '../channels-provider'
 import { CodexOAuthDialog } from '../dialogs/codex-oauth-dialog'
@@ -156,7 +153,6 @@ import {
   type MissingModelsAction,
 } from '../dialogs/missing-models-confirmation-dialog'
 import { ParamOverrideEditorDialog } from '../dialogs/param-override-editor-dialog'
-import { StatusCodeRiskDialog } from '../dialogs/status-code-risk-dialog'
 import { ModelMappingEditor } from '../model-mapping-editor'
 import {
   ChannelAdvancedSection,
@@ -288,13 +284,6 @@ export function ChannelMutateDrawer({
   const initialModelsRef = useRef<string[]>([])
   const initialModelMappingRef = useRef<string>('')
   const initialStatusCodeMappingRef = useRef<string>('')
-  const [statusCodeRiskOpen, setStatusCodeRiskOpen] = useState(false)
-  const [statusCodeRiskDetailItems, setStatusCodeRiskDetailItems] = useState<
-    string[]
-  >([])
-  const statusCodeRiskResolveRef = useRef<
-    ((confirmed: boolean) => void) | null
-  >(null)
   const [missingModelsDialogOpen, setMissingModelsDialogOpen] = useState(false)
   const [missingModelsList, setMissingModelsList] = useState<string[]>([])
   const missingModelsResolveRef = useRef<
@@ -877,34 +866,6 @@ export function ChannelMutateDrawer({
     []
   )
 
-  const confirmStatusCodeRisk = useCallback(
-    (detailItems: string[]): Promise<boolean> =>
-      new Promise((resolve) => {
-        statusCodeRiskResolveRef.current = resolve
-        setStatusCodeRiskDetailItems(detailItems)
-        setStatusCodeRiskOpen(true)
-      }),
-    []
-  )
-
-  const handleStatusCodeRiskAction = useCallback((confirmed: boolean) => {
-    setStatusCodeRiskOpen(false)
-    setStatusCodeRiskDetailItems([])
-    if (statusCodeRiskResolveRef.current) {
-      statusCodeRiskResolveRef.current(confirmed)
-      statusCodeRiskResolveRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (statusCodeRiskResolveRef.current) {
-        statusCodeRiskResolveRef.current(false)
-        statusCodeRiskResolveRef.current = null
-      }
-    }
-  }, [])
-
   const channelMutation = useChannelMutateForm({
     currentRow,
     isEditing,
@@ -938,15 +899,6 @@ export function ChannelMutateDrawer({
             })
           )
           return
-        }
-
-        const riskyRedirects = collectNewDisallowedStatusCodeRedirects(
-          initialStatusCodeMappingRef.current,
-          data.status_code_mapping
-        )
-        if (riskyRedirects.length > 0) {
-          const confirmed = await confirmStatusCodeRisk(riskyRedirects)
-          if (!confirmed) return
         }
       }
 
@@ -1003,7 +955,6 @@ export function ChannelMutateDrawer({
       isEditing,
       form,
       confirmMissingModelMappings,
-      confirmStatusCodeRisk,
       channelMutation,
       t,
     ]
@@ -3519,15 +3470,6 @@ export function ChannelMutateDrawer({
         missingModels={missingModelsList}
         onConfirm={handleMissingModelsAction}
         onOpenChange={setMissingModelsDialogOpen}
-      />
-
-      <StatusCodeRiskDialog
-        open={statusCodeRiskOpen}
-        onOpenChange={(v) => {
-          if (!v) handleStatusCodeRiskAction(false)
-        }}
-        detailItems={statusCodeRiskDetailItems}
-        onConfirm={() => handleStatusCodeRiskAction(true)}
       />
     </>
   )
