@@ -64,7 +64,14 @@ export function JsonEditor({
   const resolvedValueLabel = valueLabel ?? t('Value')
   const [mode, setMode] = useState<'visual' | 'json'>('visual')
   const [rows, setRows] = useState<EditorRow[]>([])
-  const [jsonValue, setJsonValue] = useState(value)
+  const [jsonValue, setJsonValue] = useState('')
+
+  // Initialize rows from value on mount
+  useEffect(() => {
+    setJsonValue(value)
+    parseJsonToRows(value)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const parseJsonToRows = (json: string) => {
     try {
