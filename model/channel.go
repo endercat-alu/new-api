@@ -893,6 +893,62 @@ func GetPaginatedChannelTags(query *gorm.DB, offset int, limit int) ([]*string, 
 	return tags, err
 }
 
+type ChannelTagSummary struct {
+	Tag          string `json:"tag" gorm:"column:tag"`
+	ChannelCount int64  `json:"count" gorm:"column:channel_count"`
+	Priority     *int64 `json:"priority" gorm:"-"`
+	Weight       *uint  `json:"weight" gorm:"-"`
+
+	MinPriority   *int64 `json:"-" gorm:"column:min_priority"`
+	MaxPriority   *int64 `json:"-" gorm:"column:max_priority"`
+	PriorityCount int64  `json:"-" gorm:"column:priority_count"`
+	MinWeight     *uint  `json:"-" gorm:"column:min_weight"`
+	MaxWeight     *uint  `json:"-" gorm:"column:max_weight"`
+	WeightCount   int64  `json:"-" gorm:"column:weight_count"`
+}
+
+func GetChannelTagSummaries(keyword string, limit int) ([]*ChannelTagSummary, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	query := DB.Model(&Channel{}).
+		Select("tag, COUNT(*) as channel_count, MIN(priority) as min_priority, MAX(priority) as max_priority, COUNT(priority) as priority_count, MIN(weight) as min_weight, MAX(weight) as max_weight, COUNT(weight) as weight_count").
+		Where("tag is not null AND tag != ''")
+
+	keyword = strings.TrimSpace(keyword)
+	if keyword != "" {
+		query = query.Where("tag LIKE ?", "%"+keyword+"%")
+	}
+
+	var summaries []*ChannelTagSummary
+	err := query.
+		Group("tag").
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "tag"}}).
+		Limit(limit).
+		Find(&summaries).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, summary := range summaries {
+		if summary == nil {
+			continue
+		}
+		if summary.PriorityCount == summary.ChannelCount && summary.MinPriority != nil && summary.MaxPriority != nil && *summary.MinPriority == *summary.MaxPriority {
+			summary.Priority = summary.MinPriority
+		}
+		if summary.WeightCount == summary.ChannelCount && summary.MinWeight != nil && summary.MaxWeight != nil && *summary.MinWeight == *summary.MaxWeight {
+			summary.Weight = summary.MinWeight
+		}
+	}
+
+	return summaries, nil
+}
+
 func SearchTags(keyword string, group string, model string, idSort bool) ([]*string, error) {
 	var tags []*string
 	modelsCol := "`models`"

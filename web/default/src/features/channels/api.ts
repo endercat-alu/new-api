@@ -29,6 +29,7 @@ import type {
   CopyChannelResponse,
   FetchModelsResponse,
   GetChannelResponse,
+  GetChannelTagSummariesResponse,
   GetChannelsParams,
   GetChannelsResponse,
   MultiKeyManageParams,
@@ -494,6 +495,16 @@ export async function editTagChannels(
   params: TagOperationParams
 ): Promise<{ success: boolean; message?: string }> {
   const res = await api.put('/api/channel/tag', params, channelActionConfig())
+  return res.data
+}
+
+/**
+ * Get lightweight summaries for existing tags.
+ */
+export async function getChannelTagSummaries(
+  params: { keyword?: string; limit?: number } = {}
+): Promise<GetChannelTagSummariesResponse> {
+  const res = await api.get('/api/channel/tag/summaries', { params })
   return res.data
 }
 

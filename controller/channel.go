@@ -1135,6 +1135,16 @@ func BatchSetChannelTag(c *gin.Context) {
 	return
 }
 
+func GetChannelTagSummaries(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	summaries, err := model.GetChannelTagSummaries(c.Query("keyword"), limit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, summaries)
+}
+
 func GetTagModels(c *gin.Context) {
 	tag := c.Query("tag")
 	if tag == "" {

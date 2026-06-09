@@ -171,6 +171,19 @@ export interface CopyChannelResponse {
   }
 }
 
+export interface ChannelTagSummary {
+  tag: string
+  count: number
+  priority?: number | null
+  weight?: number | null
+}
+
+export interface GetChannelTagSummariesResponse {
+  success: boolean
+  message?: string
+  data?: ChannelTagSummary[]
+}
+
 // ============================================================================
 // Multi-Key Management Types
 // ============================================================================

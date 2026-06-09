@@ -50,6 +50,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { useDebounce } from '@/hooks/use-debounce'
 import { useHiddenClickUnlock } from '@/hooks/use-hidden-click-unlock'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -110,6 +111,7 @@ import {
   getAllModels,
   getChannel,
   getChannelKey,
+  getChannelTagSummaries,
   getGroups,
   getPrefillGroups,
   refreshCodexCredential,
@@ -144,7 +146,8 @@ import {
   hasAdvancedSettingsErrors,
 } from '../../lib'
 import { collectInvalidStatusCodeEntries } from '../../lib/status-code-risk-guard'
-import type { Channel } from '../../types'
+import type { Channel, ChannelTagSummary } from '../../types'
+import { ChannelTagCombobox } from '../channel-tag-combobox'
 import { useChannels } from '../channels-provider'
 import { CodexOAuthDialog } from '../dialogs/codex-oauth-dialog'
 import { FetchModelsDialog } from '../dialogs/fetch-models-dialog'
@@ -290,6 +293,8 @@ export function ChannelMutateDrawer({
   >(null)
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false)
   const [paramOverrideEditorOpen, setParamOverrideEditorOpen] = useState(false)
+  const [tagSearch, setTagSearch] = useState('')
+  const debouncedTagSearch = useDebounce(tagSearch, 300)
 
   const isEditing = Boolean(currentRow)
   const channelId = currentRow?.id ?? null
@@ -319,6 +324,18 @@ export function ChannelMutateDrawer({
     queryFn: () => getPrefillGroups('model'),
   })
 
+  // Fetch lightweight tag summaries only while the drawer is open.
+  const { data: tagSummariesData, isLoading: isTagSummariesLoading } = useQuery(
+    {
+      queryKey: ['channel_tag_summaries', debouncedTagSearch],
+      queryFn: () =>
+        getChannelTagSummaries({ keyword: debouncedTagSearch, limit: 100 }),
+      enabled: open,
+      staleTime: 60 * 1000,
+      placeholderData: (previousData) => previousData,
+    }
+  )
+
   const { copyToClipboard } = useCopyToClipboard()
 
   const {
@@ -336,6 +353,7 @@ export function ChannelMutateDrawer({
     if (!open) {
       setChannelKey(null)
       setIsChannelKeyLoading(false)
+      setTagSearch('')
     } else if (channelId) {
       setChannelKey(null)
     }
@@ -360,6 +378,7 @@ export function ChannelMutateDrawer({
   const currentBaseUrl = form.watch('base_url')
   const currentModels = form.watch('models')
   const currentName = form.watch('name')
+  const currentTag = form.watch('tag')
   const currentModelMapping = form.watch('model_mapping')
   const awsKeyType = form.watch('aws_key_type')
   const upstreamModelUpdateCheckEnabled = form.watch(
@@ -472,6 +491,15 @@ export function ChannelMutateDrawer({
       label: model,
     }))
   }, [allModelsList, currentModelsArray])
+
+  const tagSummaries = useMemo<ChannelTagSummary[]>(() => {
+    const summaries = tagSummariesData?.data || []
+    const current = currentTag?.trim()
+    if (!current || summaries.some((summary) => summary.tag === current)) {
+      return summaries
+    }
+    return [{ tag: current, count: 0 }, ...summaries]
+  }, [tagSummariesData, currentTag])
 
   const modelMappingGuardrail = useMemo<ModelMappingGuardrail>(() => {
     if (!currentModelMapping?.trim()) {
@@ -829,6 +857,21 @@ export function ChannelMutateDrawer({
     [form]
   )
 
+  const handleTagChange = useCallback(
+    (value: string, option?: ChannelTagSummary) => {
+      form.setValue('tag', value, { shouldDirty: true })
+      if (!option) return
+
+      if (typeof option.priority === 'number') {
+        form.setValue('priority', option.priority, { shouldDirty: true })
+      }
+      if (typeof option.weight === 'number') {
+        form.setValue('weight', option.weight, { shouldDirty: true })
+      }
+    },
+    [form]
+  )
+
   // Handle successful submission
   const handleSuccess = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
@@ -950,13 +993,7 @@ export function ChannelMutateDrawer({
 
       await channelMutation.mutateAsync(data)
     },
-    [
-      isEditing,
-      form,
-      confirmMissingModelMappings,
-      channelMutation,
-      t,
-    ]
+    [isEditing, form, confirmMissingModelMappings, channelMutation, t]
   )
 
   const handleAdvancedSettingsOpenChange = useCallback((nextOpen: boolean) => {
@@ -994,7 +1031,9 @@ export function ChannelMutateDrawer({
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent className={sideDrawerContentClassName('sm:max-w-[600px]')}>
+        <SheetContent
+          className={sideDrawerContentClassName('sm:max-w-[600px]')}
+        >
           <SheetHeader className={sideDrawerHeaderClassName()}>
             <SheetTitle className='flex items-center gap-3'>
               <span className='bg-muted flex size-8 shrink-0 items-center justify-center rounded-md'>
@@ -1086,9 +1125,13 @@ export function ChannelMutateDrawer({
                         <FormItem>
                           <FormLabel>{t('Tag')}</FormLabel>
                           <FormControl>
-                            <Input
+                            <ChannelTagCombobox
+                              value={field.value}
+                              options={tagSummaries}
+                              onChange={handleTagChange}
+                              onSearchChange={setTagSearch}
                               placeholder={t(FIELD_PLACEHOLDERS.TAG)}
-                              {...field}
+                              loading={isTagSummariesLoading}
                             />
                           </FormControl>
                           <FormDescription>
