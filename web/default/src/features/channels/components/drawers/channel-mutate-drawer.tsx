@@ -205,7 +205,6 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.param_override?.trim() ||
     values.header_override?.trim() ||
     values.status_code_mapping?.trim() ||
-    values.tag?.trim() ||
     values.remark?.trim() ||
     values.priority ||
     values.weight ||
@@ -1079,6 +1078,26 @@ export function ChannelMutateDrawer({
                         )}
                       />
                     </div>
+
+                    <FormField
+                      control={form.control}
+                      name='tag'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('Tag')}</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder={t(FIELD_PLACEHOLDERS.TAG)}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            {t(FIELD_DESCRIPTIONS.TAG)}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
                     <FormField
                       control={form.control}
@@ -2615,48 +2634,26 @@ export function ChannelMutateDrawer({
                           title={t('Internal Notes')}
                           icon={<FileText className='h-3.5 w-3.5' />}
                         />
-                        <div className='grid gap-4 sm:grid-cols-2'>
-                          <FormField
-                            control={form.control}
-                            name='tag'
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>{t('Tag')}</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder={t(FIELD_PLACEHOLDERS.TAG)}
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormDescription>
-                                  {t(FIELD_DESCRIPTIONS.TAG)}
-                                </FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name='remark'
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>{t('Remark')}</FormLabel>
-                                <FormControl>
-                                  <Textarea
-                                    placeholder={t(FIELD_PLACEHOLDERS.REMARK)}
-                                    rows={2}
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormDescription>
-                                  {t(FIELD_DESCRIPTIONS.REMARK)}
-                                </FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
+                        <FormField
+                          control={form.control}
+                          name='remark'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('Remark')}</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder={t(FIELD_PLACEHOLDERS.REMARK)}
+                                  rows={2}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                {t(FIELD_DESCRIPTIONS.REMARK)}
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
 
                       <div className='flex flex-col gap-4 border-t pt-4'>

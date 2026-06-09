@@ -2465,13 +2465,6 @@ const EditChannelModal = (props) => {
                     {t('渠道行为')}
                   </Text>
 
-                  <Form.Input
-                    field='tag'
-                    label={t('渠道标签')}
-                    placeholder={t('渠道标签')}
-                    showClear
-                    onChange={(value) => handleInputChange('tag', value)}
-                  />
                   <Form.TextArea
                     field='remark'
                     label={t('备注')}
@@ -2707,6 +2700,14 @@ const EditChannelModal = (props) => {
                       showClear
                       onChange={(value) => handleInputChange('name', value)}
                       autoComplete='new-password'
+                    />
+
+                    <Form.Input
+                      field='tag'
+                      label={t('渠道标签')}
+                      placeholder={t('渠道标签')}
+                      showClear
+                      onChange={(value) => handleInputChange('tag', value)}
                     />
 
                     {inputs.type === 33 && (
