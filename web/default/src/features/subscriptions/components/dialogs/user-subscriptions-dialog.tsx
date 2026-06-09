@@ -276,6 +276,7 @@ export function UserSubscriptionsDialog(props: Props) {
                   ) : (
                     subs.map((record) => {
                       const sub = record.subscription
+                      // eslint-disable-next-line react-hooks/purity
                       const now = Date.now() / 1000
                       const isExpired =
                         (sub.end_time || 0) > 0 && sub.end_time < now

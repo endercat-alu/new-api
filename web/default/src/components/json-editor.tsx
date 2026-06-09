@@ -66,13 +66,6 @@ export function JsonEditor({
   const [rows, setRows] = useState<EditorRow[]>([])
   const [jsonValue, setJsonValue] = useState('')
 
-  // Initialize rows from value on mount
-  useEffect(() => {
-    setJsonValue(value)
-    parseJsonToRows(value)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const parseJsonToRows = (json: string) => {
     try {
       if (!json.trim()) {
@@ -92,6 +85,13 @@ export function JsonEditor({
       // Invalid JSON, keep current rows
     }
   }
+
+  // Initialize rows from value on mount
+  useEffect(() => {
+    setJsonValue(value)
+    parseJsonToRows(value)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Parse JSON to rows when value changes externally
   useEffect(() => {

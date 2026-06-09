@@ -29,7 +29,6 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -131,11 +131,11 @@ export function MultiKeyManageDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currentRow?.id])
 
-  const loadKeyStatus = async (
+  async function loadKeyStatus(
     page: number = currentPage,
     size: number = pageSize,
     status: number | null = statusFilter
-  ) => {
+  ) {
     if (!currentRow) return
 
     setIsLoading(true)
@@ -223,7 +223,9 @@ export function MultiKeyManageDialog({
         const results = response.data || []
         setKeyTestResults((prev) => ({
           ...prev,
-          ...Object.fromEntries(results.map((result) => [result.index, result])),
+          ...Object.fromEntries(
+            results.map((result) => [result.index, result])
+          ),
         }))
         toast.success(response.message || t('Key test completed'))
         queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
@@ -391,8 +393,12 @@ export function MultiKeyManageDialog({
                       label: t(option.label),
                     })),
                   ]}
-                  value={statusFilter === null ? 'all' : statusFilter.toString()}
-                  onValueChange={(v) => v !== null && handleStatusFilterChange(v)}
+                  value={
+                    statusFilter === null ? 'all' : statusFilter.toString()
+                  }
+                  onValueChange={(v) =>
+                    v !== null && handleStatusFilterChange(v)
+                  }
                 >
                   <SelectTrigger className='w-40'>
                     <SelectValue placeholder={t('All Status')} />
@@ -495,7 +501,9 @@ export function MultiKeyManageDialog({
                     <TableHeader>
                       <TableRow>
                         <TableHead className='w-12'>{t('Index')}</TableHead>
-                        <TableHead className='w-24'>{t('Key Preview')}</TableHead>
+                        <TableHead className='w-24'>
+                          {t('Key Preview')}
+                        </TableHead>
                         <TableHead className='w-20'>{t('Status')}</TableHead>
                         <TableHead className='w-48'>
                           {t('Disabled Reason')}
@@ -503,7 +511,9 @@ export function MultiKeyManageDialog({
                         <TableHead className='w-36'>
                           {t('Disabled Time')}
                         </TableHead>
-                        <TableHead className='w-24'>{t('Test Result')}</TableHead>
+                        <TableHead className='w-24'>
+                          {t('Test Result')}
+                        </TableHead>
                         <TableHead className='w-48 text-right'>
                           {t('Actions')}
                         </TableHead>

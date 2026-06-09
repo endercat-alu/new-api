@@ -737,7 +737,10 @@ const SystemSetting = () => {
                   <Button onClick={submitServerAddress}>
                     {t('更新服务器地址')}
                   </Button>
-                  <Button onClick={switchToDefaultFrontend} style={{ marginLeft: 8 }}>
+                  <Button
+                    onClick={switchToDefaultFrontend}
+                    style={{ marginLeft: 8 }}
+                  >
                     {t('切换到新版前端')}
                   </Button>
                 </Form.Section>

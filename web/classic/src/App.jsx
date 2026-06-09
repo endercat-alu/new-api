@@ -413,11 +413,7 @@ function App() {
           }
         />
         {CROSS_THEME_REDIRECTS.map(([from, to]) => (
-          <Route
-            key={from}
-            path={from}
-            element={<LegacyRedirect to={to} />}
-          />
+          <Route key={from} path={from} element={<LegacyRedirect to={to} />} />
         ))}
         <Route
           path='/system-settings/*'

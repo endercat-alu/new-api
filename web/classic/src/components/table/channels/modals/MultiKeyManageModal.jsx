@@ -323,7 +323,9 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
         const results = res.data.data || [];
         setTestResults((prev) => ({
           ...prev,
-          ...Object.fromEntries(results.map((result) => [result.index, result])),
+          ...Object.fromEntries(
+            results.map((result) => [result.index, result]),
+          ),
         }));
         showSuccess(res.data.message || t('密钥测试完成'));
         await loadKeyStatus(currentPage, pageSize);
@@ -435,7 +437,11 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
     }
     return (
       <Tooltip content={result.message || t('失败')}>
-        <Text type='danger' style={{ maxWidth: 180, display: 'block' }} ellipsis>
+        <Text
+          type='danger'
+          style={{ maxWidth: 180, display: 'block' }}
+          ellipsis
+        >
           {result.message || t('失败')}
         </Text>
       </Tooltip>

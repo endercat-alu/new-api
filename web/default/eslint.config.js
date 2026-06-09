@@ -25,6 +25,11 @@ export default defineConfig(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // React Compiler advisory rules are noisy for existing UI state sync and
+      // react-hook-form ref patterns. Keep them visible without blocking lint.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
       'react-hooks/incompatible-library': 'off',
       'react-refresh/only-export-components': [
         'warn',
