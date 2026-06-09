@@ -193,8 +193,9 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 	relayInfo.RetryIndex = 0
 	relayInfo.LastError = nil
+	maxRetryTimes := service.ChannelAffinityMaxRetryTimes(c, common.RetryTimes)
 
-	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
+	for ; retryParam.GetRetry() <= maxRetryTimes; retryParam.IncreaseRetry() {
 		relayInfo.RetryIndex = retryParam.GetRetry()
 		channel, channelErr := getChannel(c, relayInfo, retryParam)
 		if channelErr != nil {
@@ -237,7 +238,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
 
-		if !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
+		if !shouldRetry(c, newAPIError, maxRetryTimes-retryParam.GetRetry()) {
 			break
 		}
 	}
@@ -310,7 +311,31 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 			AutoBan: &autoBanInt,
 		}, nil
 	}
-	channel, selectGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
+	if affinityChannelID, ok := service.GetChannelAffinitySameRetryChannelID(c); ok {
+		channel, err := model.CacheGetChannel(affinityChannelID)
+		if err != nil {
+			return nil, types.NewError(fmt.Errorf("获取亲和渠道 #%d 失败（retry）: %s", affinityChannelID, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+		if channel == nil || channel.Status != common.ChannelStatusEnabled {
+			return nil, types.NewError(fmt.Errorf("亲和渠道 #%d 不可用（retry）", affinityChannelID), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+		newAPIError := middleware.SetupContextForSelectedChannel(c, channel, info.OriginModelName)
+		if newAPIError != nil {
+			return nil, newAPIError
+		}
+		return channel, nil
+	}
+
+	selectParam := retryParam
+	if excludeChannelIDs, ok := service.ConsumeChannelAffinityFallbackRetry(c); ok {
+		fallbackRetry := 0
+		paramCopy := *retryParam
+		paramCopy.Retry = &fallbackRetry
+		paramCopy.ExcludeChannelIDs = append([]int(nil), excludeChannelIDs...)
+		selectParam = &paramCopy
+	}
+
+	channel, selectGroup, err := service.CacheGetRandomSatisfiedChannel(selectParam)
 
 	info.PriceData.GroupRatioInfo = helper.HandleGroupRatio(c, info)
 
@@ -332,11 +357,8 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if openaiErr == nil {
 		return false
 	}
-	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
-		return false
-	}
 	if types.IsChannelError(openaiErr) {
-		return true
+		return shouldRetryWithChannelAffinityPolicy(c, true)
 	}
 	if types.IsSkipRetryError(openaiErr) {
 		return false
@@ -352,12 +374,27 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 		return false
 	}
 	if code < 100 || code > 599 {
-		return true
+		return shouldRetryWithChannelAffinityPolicy(c, true)
 	}
 	if operation_setting.IsAlwaysSkipRetryCode(openaiErr.GetErrorCode()) {
 		return false
 	}
-	return operation_setting.ShouldRetryByStatusCode(code)
+	return shouldRetryWithChannelAffinityPolicy(c, operation_setting.ShouldRetryByStatusCode(code))
+}
+
+func shouldRetryWithChannelAffinityPolicy(c *gin.Context, retryable bool) bool {
+	if !retryable {
+		return false
+	}
+	if service.IsChannelAffinitySelected(c) {
+		if service.PrepareChannelAffinityRetry(c) {
+			return true
+		}
+		if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+			return false
+		}
+	}
+	return true
 }
 
 func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError) {
@@ -519,8 +556,9 @@ func RelayTask(c *gin.Context) {
 		ModelName:  relayInfo.OriginModelName,
 		Retry:      common.GetPointer(0),
 	}
+	maxRetryTimes := service.ChannelAffinityMaxRetryTimes(c, common.RetryTimes)
 
-	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
+	for ; retryParam.GetRetry() <= maxRetryTimes; retryParam.IncreaseRetry() {
 		var channel *model.Channel
 
 		if lockedCh, ok := relayInfo.LockedChannel.(*model.Channel); ok && lockedCh != nil {
@@ -565,7 +603,7 @@ func RelayTask(c *gin.Context) {
 				types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode))
 		}
 
-		if !shouldRetryTaskRelay(c, channel.Id, taskErr, common.RetryTimes-retryParam.GetRetry()) {
+		if !shouldRetryTaskRelay(c, channel.Id, taskErr, maxRetryTimes-retryParam.GetRetry()) {
 			break
 		}
 	}
@@ -621,9 +659,6 @@ func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError,
 	if taskErr == nil {
 		return false
 	}
-	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
-		return false
-	}
 	if retryTimes <= 0 {
 		return false
 	}
@@ -631,17 +666,17 @@ func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError,
 		return false
 	}
 	if taskErr.StatusCode == http.StatusTooManyRequests {
-		return true
+		return shouldRetryWithChannelAffinityPolicy(c, true)
 	}
 	if taskErr.StatusCode == 307 {
-		return true
+		return shouldRetryWithChannelAffinityPolicy(c, true)
 	}
 	if taskErr.StatusCode/100 == 5 {
 		// 超时不重试
 		if operation_setting.IsAlwaysSkipRetryStatusCode(taskErr.StatusCode) {
 			return false
 		}
-		return true
+		return shouldRetryWithChannelAffinityPolicy(c, true)
 	}
 	if taskErr.StatusCode == http.StatusBadRequest {
 		return false
@@ -656,5 +691,5 @@ func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError,
 	if taskErr.StatusCode/100 == 2 {
 		return false
 	}
-	return true
+	return shouldRetryWithChannelAffinityPolicy(c, true)
 }

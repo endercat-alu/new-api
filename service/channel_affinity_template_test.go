@@ -130,7 +130,7 @@ func TestShouldSkipRetryAfterChannelAffinityFailure(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "explicit skip retry flag in context",
+			name: "explicit skip retry flag in selected affinity context",
 			ctx: func() *gin.Context {
 				ctx := buildChannelAffinityTemplateContextForTest(channelAffinityMeta{
 					RuleName:   "rule-explicit-flag",
@@ -138,22 +138,37 @@ func TestShouldSkipRetryAfterChannelAffinityFailure(t *testing.T) {
 					UsingGroup: "default",
 					ModelName:  "gpt-5",
 				})
+				ctx.Set(ginKeyChannelAffinitySelectedChannelID, 1001)
 				ctx.Set(ginKeyChannelAffinitySkipRetry, true)
 				return ctx
 			},
 			want: true,
 		},
 		{
-			name: "fallback to matched rule meta",
+			name: "fallback to matched rule meta in selected affinity context",
 			ctx: func() *gin.Context {
-				return buildChannelAffinityTemplateContextForTest(channelAffinityMeta{
+				ctx := buildChannelAffinityTemplateContextForTest(channelAffinityMeta{
 					RuleName:   "rule-skip-retry",
 					SkipRetry:  true,
 					UsingGroup: "default",
 					ModelName:  "gpt-5",
 				})
+				ctx.Set(ginKeyChannelAffinitySelectedChannelID, 1001)
+				return ctx
 			},
 			want: true,
+		},
+		{
+			name: "matched rule meta without selected affinity does not skip retry",
+			ctx: func() *gin.Context {
+				return buildChannelAffinityTemplateContextForTest(channelAffinityMeta{
+					RuleName:   "rule-skip-retry-not-selected",
+					SkipRetry:  true,
+					UsingGroup: "default",
+					ModelName:  "gpt-5",
+				})
+			},
+			want: false,
 		},
 		{
 			name: "no flag and no skip retry meta",
@@ -174,6 +189,29 @@ func TestShouldSkipRetryAfterChannelAffinityFailure(t *testing.T) {
 			require.Equal(t, tt.want, ShouldSkipRetryAfterChannelAffinityFailure(tt.ctx()))
 		})
 	}
+}
+
+func TestPrepareChannelAffinityRetrySequence(t *testing.T) {
+	ctx := buildChannelAffinityTemplateContextForTest(channelAffinityMeta{
+		RuleName:   "rule-retry-sequence",
+		SkipRetry:  true,
+		UsingGroup: "default",
+		ModelName:  "gpt-5",
+	})
+	ctx.Set(ginKeyChannelAffinitySelectedChannelID, 1001)
+
+	require.Equal(t, 2, ChannelAffinityMaxRetryTimes(ctx, 0))
+	require.True(t, PrepareChannelAffinityRetry(ctx))
+	channelID, ok := GetChannelAffinitySameRetryChannelID(ctx)
+	require.True(t, ok)
+	require.Equal(t, 1001, channelID)
+
+	require.True(t, PrepareChannelAffinityRetry(ctx))
+	excluded, ok := ConsumeChannelAffinityFallbackRetry(ctx)
+	require.True(t, ok)
+	require.Equal(t, []int{1001}, excluded)
+
+	require.False(t, PrepareChannelAffinityRetry(ctx))
 }
 
 func TestExtractChannelAffinityValue_RequestHeader(t *testing.T) {

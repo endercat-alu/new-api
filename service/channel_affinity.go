@@ -20,11 +20,17 @@ import (
 )
 
 const (
-	ginKeyChannelAffinityCacheKey   = "channel_affinity_cache_key"
-	ginKeyChannelAffinityTTLSeconds = "channel_affinity_ttl_seconds"
-	ginKeyChannelAffinityMeta       = "channel_affinity_meta"
-	ginKeyChannelAffinityLogInfo    = "channel_affinity_log_info"
-	ginKeyChannelAffinitySkipRetry  = "channel_affinity_skip_retry_on_failure"
+	ginKeyChannelAffinityCacheKey          = "channel_affinity_cache_key"
+	ginKeyChannelAffinityTTLSeconds        = "channel_affinity_ttl_seconds"
+	ginKeyChannelAffinityMeta              = "channel_affinity_meta"
+	ginKeyChannelAffinityLogInfo           = "channel_affinity_log_info"
+	ginKeyChannelAffinitySkipRetry         = "channel_affinity_skip_retry_on_failure"
+	ginKeyChannelAffinitySelectedChannelID = "channel_affinity_selected_channel_id"
+	ginKeyChannelAffinityFailureCount      = "channel_affinity_failure_count"
+	ginKeyChannelAffinityRetryMode         = "channel_affinity_retry_mode"
+
+	channelAffinityRetryModeSame     = "same_channel"
+	channelAffinityRetryModeFallback = "fallback_channel"
 
 	channelAffinityCacheNamespace           = "new-api:channel_affinity:v1"
 	channelAffinityUsageCacheStatsNamespace = "new-api:channel_affinity_usage_cache_stats:v1"
@@ -623,8 +629,15 @@ func GetPreferredChannelByAffinity(c *gin.Context, modelName string, usingGroup 
 	return 0, false
 }
 
-func ShouldSkipRetryAfterChannelAffinityFailure(c *gin.Context) bool {
+func IsChannelAffinitySelected(c *gin.Context) bool {
 	if c == nil {
+		return false
+	}
+	return c.GetInt(ginKeyChannelAffinitySelectedChannelID) > 0
+}
+
+func ShouldSkipRetryAfterChannelAffinityFailure(c *gin.Context) bool {
+	if c == nil || !IsChannelAffinitySelected(c) {
 		return false
 	}
 	v, ok := c.Get(ginKeyChannelAffinitySkipRetry)
@@ -641,6 +654,65 @@ func ShouldSkipRetryAfterChannelAffinityFailure(c *gin.Context) bool {
 	return meta.SkipRetry
 }
 
+// ChannelAffinityMaxRetryTimes ensures an affinity-pinned channel can be tried once more
+// and then bypassed once, even when the global retry count is lower.
+func ChannelAffinityMaxRetryTimes(c *gin.Context, base int) int {
+	if IsChannelAffinitySelected(c) && base < 2 {
+		return 2
+	}
+	return base
+}
+
+func PrepareChannelAffinityRetry(c *gin.Context) bool {
+	if !IsChannelAffinitySelected(c) {
+		return false
+	}
+	failureCount := c.GetInt(ginKeyChannelAffinityFailureCount) + 1
+	c.Set(ginKeyChannelAffinityFailureCount, failureCount)
+	switch failureCount {
+	case 1:
+		c.Set(ginKeyChannelAffinityRetryMode, channelAffinityRetryModeSame)
+		return true
+	case 2:
+		c.Set(ginKeyChannelAffinityRetryMode, channelAffinityRetryModeFallback)
+		return true
+	default:
+		return false
+	}
+}
+
+func GetChannelAffinitySameRetryChannelID(c *gin.Context) (int, bool) {
+	if c == nil {
+		return 0, false
+	}
+	mode := c.GetString(ginKeyChannelAffinityRetryMode)
+	if mode != channelAffinityRetryModeSame {
+		return 0, false
+	}
+	channelID := c.GetInt(ginKeyChannelAffinitySelectedChannelID)
+	if channelID <= 0 {
+		return 0, false
+	}
+	c.Set(ginKeyChannelAffinityRetryMode, "")
+	return channelID, true
+}
+
+func ConsumeChannelAffinityFallbackRetry(c *gin.Context) (excludeChannelIDs []int, ok bool) {
+	if c == nil {
+		return nil, false
+	}
+	mode := c.GetString(ginKeyChannelAffinityRetryMode)
+	if mode != channelAffinityRetryModeFallback {
+		return nil, false
+	}
+	channelID := c.GetInt(ginKeyChannelAffinitySelectedChannelID)
+	if channelID <= 0 {
+		return nil, false
+	}
+	c.Set(ginKeyChannelAffinityRetryMode, "")
+	return []int{channelID}, true
+}
+
 func MarkChannelAffinityUsed(c *gin.Context, selectedGroup string, channelID int) {
 	if c == nil || channelID <= 0 {
 		return
@@ -650,6 +722,9 @@ func MarkChannelAffinityUsed(c *gin.Context, selectedGroup string, channelID int
 		return
 	}
 	c.Set(ginKeyChannelAffinitySkipRetry, meta.SkipRetry)
+	c.Set(ginKeyChannelAffinitySelectedChannelID, channelID)
+	c.Set(ginKeyChannelAffinityFailureCount, 0)
+	c.Set(ginKeyChannelAffinityRetryMode, "")
 	info := map[string]interface{}{
 		"reason":         meta.RuleName,
 		"rule_name":      meta.RuleName,
