@@ -1368,6 +1368,7 @@
     "Enable All": "すべて有効にする",
     "Enable check-in feature": "チェックイン機能を有効にする",
     "Enable Data Dashboard": "データダッシュボードを有効にする",
+    "Show onboarding guide on dashboard": "ダッシュボードにオンボーディングガイドを表示する",
     "Enable demo mode with limited functionality": "機能が制限されたデモモードを有効にする",
     "Enable Discord OAuth": "Discord OAuthを有効にする",
     "Enable Disk Cache": "ディスクキャッシュを有効にする",

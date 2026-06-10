@@ -291,6 +291,7 @@ func TestClearCurrentChannelAffinityCache(t *testing.T) {
 		RuleName:   "codex cli trace",
 		SkipRetry:  true,
 	})
+	ctx.Set(ginKeyChannelAffinitySelectedChannelID, 9527)
 	require.True(t, ShouldSkipRetryAfterChannelAffinityFailure(ctx))
 
 	deleted := ClearCurrentChannelAffinityCache(ctx)
