@@ -219,6 +219,15 @@ func SetApiRouter(router *gin.Engine) {
 			performanceRoute.GET("/logs", controller.GetLogFiles)
 			performanceRoute.DELETE("/logs", controller.CleanupLogFiles)
 		}
+		relayCaptureRoute := apiRouter.Group("/relay-capture")
+		relayCaptureRoute.Use(middleware.AdminAuth())
+		{
+			relayCaptureRoute.GET("/status", controller.GetRelayCaptureStatus)
+			relayCaptureRoute.POST("/start", controller.StartRelayCapture)
+			relayCaptureRoute.POST("/stop", controller.StopRelayCapture)
+			relayCaptureRoute.GET("/records", controller.GetRelayCaptureRecords)
+			relayCaptureRoute.POST("/clear", controller.ClearRelayCaptureRecords)
+		}
 		ratioSyncRoute := apiRouter.Group("/ratio_sync")
 		ratioSyncRoute.Use(middleware.RootAuth())
 		{

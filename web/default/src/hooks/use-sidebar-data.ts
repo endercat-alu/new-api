@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import {
   Activity,
   Box,
+  Bug,
   CreditCard,
   FileText,
   FlaskConical,
@@ -140,6 +141,11 @@ export function useSidebarData(): SidebarData {
             title: t('Subscription Management'),
             url: '/subscriptions',
             icon: CreditCard,
+          },
+          {
+            title: t('AI Traffic Capture'),
+            url: '/relay-capture',
+            icon: Bug,
           },
           {
             title: t('System Settings'),
