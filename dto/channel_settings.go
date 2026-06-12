@@ -7,6 +7,7 @@ type ChannelSettings struct {
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
 	SystemPrompt           string `json:"system_prompt,omitempty"`
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
+	StreamTimeout          int    `json:"stream_timeout,omitempty"` // 流式响应上游空闲超时时间，单位秒；0 表示不启用渠道级超时
 }
 
 type VertexKeyType string

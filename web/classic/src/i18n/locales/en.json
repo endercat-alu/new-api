@@ -2257,6 +2257,8 @@
     "流式响应完成": "Streaming response completed",
     "流式输出": "Streaming Output",
     "流状态": "Stream Status",
+    "流空闲超时（秒）": "Stream idle timeout (seconds)",
+    "流式传输中，上游超过指定秒数没有新数据时按正常结束关闭；0 表示不启用渠道级超时": "During streaming, close as a normal completion if upstream sends no new data for the specified seconds; 0 disables the channel-level timeout",
     "流量端口": "Traffic Port",
     "流错误详情": "Stream Error Details",
     "浅色": "Light",

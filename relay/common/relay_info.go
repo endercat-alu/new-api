@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -179,6 +180,8 @@ type RelayInfo struct {
 
 	StreamStatus *StreamStatus
 
+	streamIdleTimeoutTriggered atomic.Bool
+
 	ThinkingContentInfo
 	TokenCountMeta
 	*ClaudeConvertInfo
@@ -186,6 +189,20 @@ type RelayInfo struct {
 	*ResponsesUsageInfo
 	*ChannelMeta
 	*TaskRelayInfo
+}
+
+func (info *RelayInfo) MarkStreamIdleTimeoutTriggered() {
+	if info == nil {
+		return
+	}
+	info.streamIdleTimeoutTriggered.Store(true)
+}
+
+func (info *RelayInfo) IsStreamIdleTimeoutTriggered() bool {
+	if info == nil {
+		return false
+	}
+	return info.streamIdleTimeoutTriggered.Load()
 }
 
 func (info *RelayInfo) InitChannelMeta(c *gin.Context) {

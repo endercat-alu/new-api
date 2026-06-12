@@ -2247,6 +2247,8 @@
     "流式响应完成": "Flux terminé",
     "流式输出": "Sortie en flux",
     "流状态": "",
+    "流空闲超时（秒）": "Délai d’inactivité du flux (secondes)",
+    "流式传输中，上游超过指定秒数没有新数据时按正常结束关闭；0 表示不启用渠道级超时": "Pendant le streaming, fermer comme une fin normale si l’amont n’envoie aucune nouvelle donnée pendant le nombre de secondes indiqué ; 0 désactive le délai au niveau du canal",
     "流量端口": "Traffic Port",
     "流错误详情": "",
     "浅色": "Clair",

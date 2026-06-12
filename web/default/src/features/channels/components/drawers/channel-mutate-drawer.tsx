@@ -213,6 +213,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.weight ||
     values.proxy?.trim() ||
     values.system_prompt?.trim() ||
+    (values.stream_timeout ?? 0) > 0 ||
     values.force_format ||
     values.thinking_to_content ||
     values.pass_through_body_enabled ||
@@ -3239,6 +3240,33 @@ export function ChannelMutateDrawer({
                           )}
                         />
                       </div>
+
+                      <FormField
+                        control={form.control}
+                        name='stream_timeout'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('Stream Idle Timeout')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                placeholder='0'
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(Number(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t(
+                                'Close the stream as a normal completion if upstream sends no new data for this many seconds. 0 disables this per-channel timeout.'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
                       <FormField
                         control={form.control}

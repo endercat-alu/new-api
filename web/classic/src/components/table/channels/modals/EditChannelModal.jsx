@@ -202,6 +202,7 @@ const EditChannelModal = (props) => {
     pass_through_body_enabled: false,
     system_prompt: '',
     system_prompt_override: false,
+    stream_timeout: 0,
     settings: '',
     // 仅 Vertex: 密钥格式（存入 settings.vertex_key_type）
     vertex_key_type: 'json',
@@ -524,6 +525,7 @@ const EditChannelModal = (props) => {
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
+    stream_timeout: 0,
   });
   const showApiConfigCard = true; // 控制是否显示 API 配置卡片
   const getInitValues = () => ({ ...originInputs });
@@ -877,6 +879,11 @@ const EditChannelModal = (props) => {
           data.system_prompt = parsedSettings.system_prompt || '';
           data.system_prompt_override =
             parsedSettings.system_prompt_override || false;
+          data.stream_timeout = Number.isFinite(
+            Number(parsedSettings.stream_timeout),
+          )
+            ? Math.max(0, Number(parsedSettings.stream_timeout))
+            : 0;
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
@@ -885,6 +892,7 @@ const EditChannelModal = (props) => {
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
           data.system_prompt_override = false;
+          data.stream_timeout = 0;
         }
       } else {
         data.force_format = false;
@@ -893,6 +901,7 @@ const EditChannelModal = (props) => {
         data.pass_through_body_enabled = false;
         data.system_prompt = '';
         data.system_prompt_override = false;
+        data.stream_timeout = 0;
       }
 
       if (data.settings) {
@@ -1009,6 +1018,7 @@ const EditChannelModal = (props) => {
         pass_through_body_enabled: data.pass_through_body_enabled,
         system_prompt: data.system_prompt,
         system_prompt_override: data.system_prompt_override || false,
+        stream_timeout: data.stream_timeout || 0,
       });
       initialModelsRef.current = (data.models || [])
         .map((model) => (model || '').trim())
@@ -1047,6 +1057,7 @@ const EditChannelModal = (props) => {
         (data.weight && data.weight !== 0) ||
         (data.proxy && data.proxy.trim()) ||
         (data.system_prompt && data.system_prompt.trim()) ||
+        (data.stream_timeout && data.stream_timeout > 0) ||
         data.thinking_to_content ||
         data.pass_through_body_enabled ||
         data.force_format ||
@@ -1402,6 +1413,7 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: false,
       system_prompt: '',
       system_prompt_override: false,
+      stream_timeout: 0,
     });
     // 重置密钥模式状态
     setKeyMode('append');
@@ -1772,6 +1784,7 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
       system_prompt: localInputs.system_prompt || '',
       system_prompt_override: localInputs.system_prompt_override || false,
+      stream_timeout: Math.max(0, Number(localInputs.stream_timeout) || 0),
     };
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
@@ -1859,6 +1872,7 @@ const EditChannelModal = (props) => {
     delete localInputs.pass_through_body_enabled;
     delete localInputs.system_prompt;
     delete localInputs.system_prompt_override;
+    delete localInputs.stream_timeout;
     delete localInputs.is_enterprise_account;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
@@ -2733,6 +2747,23 @@ const EditChannelModal = (props) => {
                       )
                     }
                     extraText={t('启用请求体透传功能')}
+                  />
+
+                  <Form.InputNumber
+                    field='stream_timeout'
+                    label={t('流空闲超时（秒）')}
+                    placeholder='0'
+                    min={0}
+                    onNumberChange={(value) =>
+                      handleChannelSettingsChange(
+                        'stream_timeout',
+                        Math.max(0, Number(value) || 0),
+                      )
+                    }
+                    style={{ width: '100%' }}
+                    extraText={t(
+                      '流式传输中，上游超过指定秒数没有新数据时按正常结束关闭；0 表示不启用渠道级超时',
+                    )}
                   />
 
                   <Form.Input

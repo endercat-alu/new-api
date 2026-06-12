@@ -2269,6 +2269,8 @@
     "流式响应完成": "Luồng hoàn tất",
     "流式输出": "Đầu ra luồng",
     "流状态": "",
+    "流空闲超时（秒）": "Thời gian chờ khi luồng không hoạt động (giây)",
+    "流式传输中，上游超过指定秒数没有新数据时按正常结束关闭；0 表示不启用渠道级超时": "Khi truyền luồng, đóng như hoàn tất bình thường nếu upstream không gửi dữ liệu mới quá số giây đã đặt; 0 tắt thời gian chờ cấp kênh",
     "流量端口": "Traffic Port",
     "流错误详情": "",
     "浅色": "Sáng",

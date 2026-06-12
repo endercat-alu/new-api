@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -147,8 +148,31 @@ func HandleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStream
 	responseId string, createAt int64, model string, systemFingerprint string,
 	usage *dto.Usage, containStreamUsage bool) {
 
+	idleTimedOut := info != nil && info.IsStreamIdleTimeoutTriggered()
+	if idleTimedOut {
+		if responseId == "" {
+			responseId = helper.GetResponseID(c)
+		}
+		if createAt == 0 {
+			createAt = common.GetTimestamp()
+		}
+		if model == "" {
+			model = info.UpstreamModelName
+		}
+		if usage == nil {
+			usage = &dto.Usage{}
+		}
+	}
+
 	switch info.RelayFormat {
 	case types.RelayFormatOpenAI:
+		if idleTimedOut {
+			response := helper.GenerateStopResponse(responseId, createAt, model, constant.FinishReasonStop)
+			if systemFingerprint != "" {
+				response.SetSystemFingerprint(systemFingerprint)
+			}
+			_ = helper.ObjectData(c, response)
+		}
 		if info.ShouldIncludeUsage && !containStreamUsage {
 			response := helper.GenerateFinalUsageResponse(responseId, createAt, model, *usage)
 			response.SetSystemFingerprint(systemFingerprint)
@@ -158,7 +182,10 @@ func HandleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStream
 
 	case types.RelayFormatClaude:
 		var streamResponse dto.ChatCompletionsStreamResponse
-		if err := common.Unmarshal(common.StringToByteSlice(lastStreamData), &streamResponse); err != nil {
+		if idleTimedOut {
+			streamResponse = *helper.GenerateStopResponse(responseId, createAt, model, constant.FinishReasonStop)
+			streamResponse.Usage = usage
+		} else if err := common.Unmarshal(common.StringToByteSlice(lastStreamData), &streamResponse); err != nil {
 			common.SysLog("error unmarshalling stream response: " + err.Error())
 			return
 		}
@@ -173,7 +200,10 @@ func HandleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStream
 
 	case types.RelayFormatGemini:
 		var streamResponse dto.ChatCompletionsStreamResponse
-		if err := common.Unmarshal(common.StringToByteSlice(lastStreamData), &streamResponse); err != nil {
+		if idleTimedOut {
+			streamResponse = *helper.GenerateStopResponse(responseId, createAt, model, constant.FinishReasonStop)
+			streamResponse.Usage = usage
+		} else if err := common.Unmarshal(common.StringToByteSlice(lastStreamData), &streamResponse); err != nil {
 			common.SysLog("error unmarshalling stream response: " + err.Error())
 			return
 		}

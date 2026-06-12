@@ -856,6 +856,34 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	return nil
 }
 
+func writeClaudeSyntheticStop(c *gin.Context, claudeInfo *ClaudeResponseInfo) {
+	if claudeInfo == nil {
+		return
+	}
+	stopReason := "end_turn"
+	if claudeInfo.Usage == nil {
+		claudeInfo.Usage = &dto.Usage{}
+	}
+	if !claudeInfo.Done {
+		_ = helper.ClaudeData(c, dto.ClaudeResponse{
+			Type: "message_delta",
+			Usage: &dto.ClaudeUsage{
+				InputTokens:                 claudeInfo.Usage.PromptTokens,
+				OutputTokens:                claudeInfo.Usage.CompletionTokens,
+				CacheReadInputTokens:        claudeInfo.Usage.PromptTokensDetails.CachedTokens,
+				CacheCreationInputTokens:    claudeInfo.Usage.PromptTokensDetails.CachedCreationTokens,
+				ClaudeCacheCreation5mTokens: claudeInfo.Usage.ClaudeCacheCreation5mTokens,
+				ClaudeCacheCreation1hTokens: claudeInfo.Usage.ClaudeCacheCreation1hTokens,
+			},
+			Delta: &dto.ClaudeMediaMessage{
+				StopReason: &stopReason,
+			},
+		})
+	}
+	_ = helper.ClaudeData(c, dto.ClaudeResponse{Type: "message_stop"})
+	claudeInfo.Done = true
+}
+
 func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, claudeInfo *ClaudeResponseInfo) {
 	if claudeInfo.Usage.PromptTokens == 0 {
 		//上游出错
@@ -880,7 +908,9 @@ func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, clau
 	}
 
 	if info.RelayFormat == types.RelayFormatClaude {
-		//
+		if info.IsStreamIdleTimeoutTriggered() {
+			writeClaudeSyntheticStop(c, claudeInfo)
+		}
 	} else if info.RelayFormat == types.RelayFormatOpenAI {
 		if info.ShouldIncludeUsage {
 			openAIUsage := buildOpenAIStyleUsageFromClaudeUsage(claudeInfo.Usage)

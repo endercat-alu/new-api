@@ -56,8 +56,13 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		}
 	}()
 
+	channelStreamIdleTimeout := ChannelStreamIdleTimeout(info)
 	streamingTimeout := time.Duration(constant.StreamingTimeout) * time.Second
-	if streamingTimeout <= 0 {
+	streamingTimeoutAsDone := false
+	if channelStreamIdleTimeout > 0 {
+		streamingTimeout = channelStreamIdleTimeout
+		streamingTimeoutAsDone = true
+	} else if streamingTimeout <= 0 {
 		streamingTimeout = time.Duration(common.RelayTimeout) * time.Second
 	}
 	if streamingTimeout <= 0 {
@@ -88,6 +93,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	logger.LogDebug(c, "relay max idle conns: %d", common.RelayMaxIdleConns)
 	logger.LogDebug(c, "relay max idle conns per host: %d", common.RelayMaxIdleConnsPerHost)
 	logger.LogDebug(c, "streaming timeout seconds: %d", int64(streamingTimeout.Seconds()))
+	logger.LogDebug(c, "channel stream idle timeout seconds: %d", int64(channelStreamIdleTimeout.Seconds()))
 	logger.LogDebug(c, "ping interval seconds: %d", int64(pingInterval.Seconds()))
 
 	// 改进资源清理，确保所有 goroutine 正确退出
@@ -270,6 +276,11 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			}
 		}
 
+		if info.IsStreamIdleTimeoutTriggered() {
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonDone, nil)
+			return
+		}
+
 		if err := scanner.Err(); err != nil {
 			if err != io.EOF {
 				logger.LogError(c, "scanner error: "+err.Error())
@@ -282,7 +293,16 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	// 主循环等待完成或超时
 	select {
 	case <-ticker.C:
-		info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonTimeout, nil)
+		if streamingTimeoutAsDone {
+			info.MarkStreamIdleTimeoutTriggered()
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonDone, nil)
+			logger.LogInfo(c, fmt.Sprintf("channel stream idle timeout reached: %d seconds", int64(streamingTimeout.Seconds())))
+		} else {
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonTimeout, nil)
+		}
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 	case <-stopChan:
 		// EndReason already set by the goroutine that triggered stopChan
 	case <-c.Request.Context().Done():
