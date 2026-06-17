@@ -212,7 +212,7 @@ export const channelFormSchema = z
       )
     }
 
-    if ([3, 18, 21, 39, 41, 49].includes(data.type) && !data.other?.trim()) {
+    if ([3, 18, 21, 41, 49].includes(data.type) && !data.other?.trim()) {
       addRequiredIssue(
         ctx,
         'other',
