@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
@@ -34,22 +35,46 @@ func (a *Adaptor) ConvertClaudeRequest(*gin.Context, *relaycommon.RelayInfo, *dt
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
+func parseCloudflareKey(apiKey string) (accountID string, token string) {
+	if idx := strings.Index(apiKey, "|"); idx != -1 {
+		return apiKey[:idx], apiKey[idx+1:]
+	}
+	return "", apiKey
+}
+
+// getCloudflareAccountID 获取 Cloudflare Account ID，优先从 key 中解析，回退到 ApiVersion。
+func getCloudflareAccountID(info *relaycommon.RelayInfo) string {
+	accountID, _ := parseCloudflareKey(info.ApiKey)
+	if accountID != "" {
+		return accountID
+	}
+	// 回退：旧配置将 Account ID 存储在 channel.Other → ApiVersion 字段
+	return info.ApiVersion
+}
+
+func getCloudflareToken(info *relaycommon.RelayInfo) string {
+	_, token := parseCloudflareKey(info.ApiKey)
+	return token
+}
+
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	accountID := getCloudflareAccountID(info)
 	switch info.RelayMode {
 	case constant.RelayModeChatCompletions:
-		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/chat/completions", info.ChannelBaseUrl, info.ApiVersion), nil
+		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/chat/completions", info.ChannelBaseUrl, accountID), nil
 	case constant.RelayModeEmbeddings:
-		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/embeddings", info.ChannelBaseUrl, info.ApiVersion), nil
+		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/embeddings", info.ChannelBaseUrl, accountID), nil
 	case constant.RelayModeResponses:
-		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/responses", info.ChannelBaseUrl, info.ApiVersion), nil
+		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/v1/responses", info.ChannelBaseUrl, accountID), nil
 	default:
-		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/run/%s", info.ChannelBaseUrl, info.ApiVersion, info.UpstreamModelName), nil
+		return fmt.Sprintf("%s/client/v4/accounts/%s/ai/run/%s", info.ChannelBaseUrl, accountID, info.UpstreamModelName), nil
 	}
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
-	req.Set("Authorization", fmt.Sprintf("Bearer %s", info.ApiKey))
+	token := getCloudflareToken(info)
+	req.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	return nil
 }
 

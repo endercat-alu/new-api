@@ -1534,31 +1534,6 @@ export function ChannelMutateDrawer({
                       />
                     )}
 
-                    {/* Cloudflare Workers AI (type 39) */}
-                    {currentType === 39 && (
-                      <FormField
-                        control={form.control}
-                        name='other'
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t('Account ID *')}</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder={t(
-                                  'e.g., d6b5da8hk1awo8nap34ube6gh'
-                                )}
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              {t('Your Cloudflare Account ID')}
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-
                     {/* SiliconFlow (type 40) */}
                     {currentType === 40 && (
                       <Alert>
@@ -1936,6 +1911,13 @@ export function ChannelMutateDrawer({
                                 : t(
                                     'Enter key, format: AccessKey|SecretAccessKey|Region'
                                   )
+                            }
+                            if (currentType === 39) {
+                              return isBatchMode
+                                ? t(
+                                    'Enter key, one per line, format: AccountID|Token'
+                                  )
+                                : t('Enter key, format: AccountID|Token')
                             }
                             if (isBatchMode) {
                               return t(
