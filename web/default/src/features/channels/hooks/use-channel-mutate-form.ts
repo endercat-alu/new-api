@@ -70,17 +70,24 @@ export function useChannelMutateForm(props: UseChannelMutateFormParams) {
           data,
           props.currentRow.id
         )
-        const payloadWithKeyMode =
-          props.isMultiKeyChannel && data.key_mode
-            ? {
-                ...payload,
-                key_mode: data.key_mode,
-              }
+        // For multi-key channels: include key_mode (append/replace) and multi_key_mode (random/polling)
+        const extraFields: Record<string, string> = {}
+        if (props.isMultiKeyChannel) {
+          if (data.key_mode) {
+            extraFields.key_mode = data.key_mode
+          }
+          if (data.multi_key_type) {
+            extraFields.multi_key_mode = data.multi_key_type
+          }
+        }
+        const payloadWithExtras =
+          Object.keys(extraFields).length > 0
+            ? { ...payload, ...extraFields }
             : payload
 
         const response = await updateChannel(
           props.currentRow.id,
-          payloadWithKeyMode
+          payloadWithExtras
         )
         if (!response.success) {
           throw new Error(response.message || t(ERROR_MESSAGES.UPDATE_FAILED))

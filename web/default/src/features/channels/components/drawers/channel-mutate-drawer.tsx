@@ -2152,7 +2152,8 @@ export function ChannelMutateDrawer({
                         />
                       )}
 
-                      {!isEditing && multiKeyMode === 'multi_to_single' && (
+                      {(!isEditing && multiKeyMode === 'multi_to_single') ||
+                      (isEditing && isMultiKeyChannel) ? (
                         <FormField
                           control={form.control}
                           name='multi_key_type'
@@ -2200,7 +2201,7 @@ export function ChannelMutateDrawer({
                             </FormItem>
                           )}
                         />
-                      )}
+                      ) : null}
                     </ChannelAuthSection>
                   </ChannelApiAccessSection>
 
