@@ -59,6 +59,7 @@ import {
   invalidateUserSubscription,
   deleteUserSubscription,
 } from '../../api'
+import { formatQuota } from '@/lib/format'
 import { formatTimestamp } from '../../lib'
 import type { PlanRecord, UserSubscriptionRecord } from '../../types'
 
@@ -314,7 +315,9 @@ export function UserSubscriptionsDialog(props: Props) {
                             </div>
                           </TableCell>
                           <TableCell>
-                            {total > 0 ? `${used}/${total}` : t('Unlimited')}
+                            {total > 0
+                              ? `${formatQuota(used)}/${formatQuota(total)}`
+                              : t('Unlimited')}
                           </TableCell>
                           <TableCell className='text-right'>
                             <div className='flex justify-end gap-1'>
