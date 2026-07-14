@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -143,7 +144,7 @@ func chooseDB(envName string, isLog bool) (*gorm.DB, error) {
 			} else {
 				common.LogSqlType = common.DatabaseTypeSQLite
 			}
-			return gorm.Open(sqlite.Open(common.SQLitePath), &gorm.Config{
+			return gorm.Open(sqlite.Open(common.BuildSQLiteDSN(common.SQLitePath)), &gorm.Config{
 				PrepareStmt: true, // precompile SQL
 			})
 		}
@@ -169,9 +170,30 @@ func chooseDB(envName string, isLog bool) (*gorm.DB, error) {
 	// Use SQLite
 	common.SysLog("SQL_DSN not set, using SQLite as database")
 	common.UsingSQLite = true
-	return gorm.Open(sqlite.Open(common.SQLitePath), &gorm.Config{
+	return gorm.Open(sqlite.Open(common.BuildSQLiteDSN(common.SQLitePath)), &gorm.Config{
 		PrepareStmt: true, // precompile SQL
 	})
+}
+
+func setConnPoolLimits(sqlDB *sql.DB, isSQLite bool) {
+	if isSQLite {
+		maxOpen := common.GetEnvOrDefault("SQL_MAX_OPEN_CONNS", 8)
+		maxIdle := common.GetEnvOrDefault("SQL_MAX_IDLE_CONNS", 4)
+		if maxOpen > 16 {
+			maxOpen = 16
+		}
+		if maxIdle > maxOpen {
+			maxIdle = maxOpen
+		}
+		sqlDB.SetMaxIdleConns(maxIdle)
+		sqlDB.SetMaxOpenConns(maxOpen)
+		sqlDB.SetConnMaxLifetime(0)
+		common.SysLog(fmt.Sprintf("sqlite connection pool: maxOpen=%d, maxIdle=%d", maxOpen, maxIdle))
+		return
+	}
+	sqlDB.SetMaxIdleConns(common.GetEnvOrDefault("SQL_MAX_IDLE_CONNS", 100))
+	sqlDB.SetMaxOpenConns(common.GetEnvOrDefault("SQL_MAX_OPEN_CONNS", 1000))
+	sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
 }
 
 func InitDB() (err error) {
@@ -191,9 +213,7 @@ func InitDB() (err error) {
 		if err != nil {
 			return err
 		}
-		sqlDB.SetMaxIdleConns(common.GetEnvOrDefault("SQL_MAX_IDLE_CONNS", 100))
-		sqlDB.SetMaxOpenConns(common.GetEnvOrDefault("SQL_MAX_OPEN_CONNS", 1000))
-		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
+		setConnPoolLimits(sqlDB, common.UsingSQLite)
 
 		if !common.IsMasterNode {
 			return nil
@@ -231,9 +251,7 @@ func InitLogDB() (err error) {
 		if err != nil {
 			return err
 		}
-		sqlDB.SetMaxIdleConns(common.GetEnvOrDefault("SQL_MAX_IDLE_CONNS", 100))
-		sqlDB.SetMaxOpenConns(common.GetEnvOrDefault("SQL_MAX_OPEN_CONNS", 1000))
-		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
+		setConnPoolLimits(sqlDB, common.LogSqlType == common.DatabaseTypeSQLite)
 
 		if !common.IsMasterNode {
 			return nil

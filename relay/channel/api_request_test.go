@@ -3,6 +3,7 @@ package channel
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -190,4 +191,52 @@ func TestProcessHeaderOverride_PassHeadersTemplateSetsRuntimeHeaders(t *testing.
 	require.Equal(t, "Codex CLI", upstreamReq.Header.Get("Originator"))
 	require.Equal(t, "sess-123", upstreamReq.Header.Get("Session_id"))
 	require.Empty(t, upstreamReq.Header.Get("X-Codex-Beta-Features"))
+}
+
+func TestSetupApiRequestHeader_DefaultUserAgent(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	headers := http.Header{}
+	SetupApiRequestHeader(&relaycommon.RelayInfo{}, ctx, &headers)
+	require.Equal(t, DefaultUpstreamUserAgent, headers.Get("User-Agent"))
+	require.False(t, strings.HasPrefix(headers.Get("User-Agent"), "Go-http-client/"))
+}
+
+func TestSetupApiRequestHeader_ClientUserAgentPreferred(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	ctx.Request.Header.Set("User-Agent", "client-ua-foo")
+
+	headers := http.Header{}
+	SetupApiRequestHeader(&relaycommon.RelayInfo{}, ctx, &headers)
+	require.Equal(t, "client-ua-foo", headers.Get("User-Agent"))
+}
+
+func TestEnsureRequestUserAgent_OverrideWins(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodPost, "https://example.com/v1/chat/completions", nil)
+	req.Header.Set("User-Agent", DefaultUpstreamUserAgent)
+	applyHeaderOverrideToRequest(req, map[string]string{
+		"User-Agent": "override-ua",
+	})
+	ensureRequestUserAgent(req)
+	require.Equal(t, "override-ua", req.Header.Get("User-Agent"))
+}
+
+func TestEnsureRequestUserAgent_FillsWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodPost, "https://example.com/v1/chat/completions", nil)
+	ensureRequestUserAgent(req)
+	require.Equal(t, DefaultUpstreamUserAgent, req.Header.Get("User-Agent"))
 }

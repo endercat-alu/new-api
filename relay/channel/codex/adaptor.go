@@ -175,12 +175,12 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 		req.Set("OpenAI-Beta", "responses=experimental")
 	}
 	if req.Get("originator") == "" {
-		req.Set("originator", "codex_cli_rs")
+		req.Set("originator", channel.DefaultCodexOriginator)
+	}
+	if strings.TrimSpace(req.Get("User-Agent")) == "" || req.Get("User-Agent") == channel.DefaultUpstreamUserAgent {
+		req.Set("User-Agent", channel.DefaultCodexUserAgent)
 	}
 
-	// chatgpt.com/backend-api/codex/responses is strict about Content-Type.
-	// Clients may omit it or include parameters like `application/json; charset=utf-8`,
-	// which can be rejected by the upstream. Force the exact media type.
 	req.Set("Content-Type", "application/json")
 	if info.IsStream {
 		req.Set("Accept", "text/event-stream")
