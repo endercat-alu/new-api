@@ -77,6 +77,12 @@ function getVChartDefaultColors(domainLength: number, themeKey?: string) {
   return scheme.scheme
 }
 
+export function getDashboardChartColors(domainLength: number): string[] {
+  return getVChartDefaultColors(domainLength).filter(
+    (color): color is string => typeof color === 'string'
+  )
+}
+
 function renderQuotaCompat(rawQuota: number, digits = 4): string {
   const { config, meta } = getCurrencyDisplay()
   if (meta.kind === 'tokens') return rawQuota.toLocaleString()
