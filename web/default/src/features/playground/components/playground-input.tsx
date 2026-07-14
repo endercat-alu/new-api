@@ -50,9 +50,16 @@ import {
 } from '@/components/ai-elements/prompt-input'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { ModelGroupSelector } from '@/components/model-group-selector'
-import type { ModelOption, GroupOption } from '../types'
+import type {
+  GroupOption,
+  ModelOption,
+  ParameterEnabled,
+  PlaygroundConfig,
+} from '../types'
+import { PlaygroundParameterPanel } from './playground-parameter-panel'
 
 interface PlaygroundInputProps {
+  config: PlaygroundConfig
   onSubmit: (text: string) => void
   onStop?: () => void
   disabled?: boolean
@@ -64,6 +71,15 @@ interface PlaygroundInputProps {
   groups: GroupOption[]
   groupValue: string
   onGroupChange: (value: string) => void
+  onConfigChange: <K extends keyof PlaygroundConfig>(
+    key: K,
+    value: PlaygroundConfig[K]
+  ) => void
+  onParameterEnabledChange: (
+    key: keyof ParameterEnabled,
+    value: boolean
+  ) => void
+  parameterEnabled: ParameterEnabled
 }
 
 const suggestions = [
@@ -76,6 +92,7 @@ const suggestions = [
 ]
 
 export function PlaygroundInput({
+  config,
   onSubmit,
   onStop,
   disabled,
@@ -87,6 +104,9 @@ export function PlaygroundInput({
   groups,
   groupValue,
   onGroupChange,
+  onConfigChange,
+  onParameterEnabledChange,
+  parameterEnabled,
 }: PlaygroundInputProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
@@ -180,6 +200,14 @@ export function PlaygroundInput({
               <span className='hidden sm:inline'>{t('Search')}</span>
               <span className='sr-only sm:hidden'>{t('Search')}</span>
             </PromptInputButton>
+
+            <PlaygroundParameterPanel
+              config={config}
+              disabled={disabled}
+              onConfigChange={onConfigChange}
+              onParameterEnabledChange={onParameterEnabledChange}
+              parameterEnabled={parameterEnabled}
+            />
           </PromptInputTools>
 
           <div className='flex items-center gap-1.5 md:gap-2'>
