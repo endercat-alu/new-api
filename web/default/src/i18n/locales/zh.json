@@ -4733,6 +4733,9 @@
     "Channel {{name}}": "渠道 {{name}}",
     "Channel {{name}} model {{model}}": "渠道 {{name}} 模型 {{model}}",
     "Model {{model}}": "模型 {{model}}",
-    "Response time: {{duration}}": "响应时间：{{duration}}"
+    "Response time: {{duration}}": "响应时间：{{duration}}",
+    "No models with unset prices": "暂无未设价模型",
+    "Unset price models": "未设价模型",
+    "Failed to load enabled models": "加载已启用模型失败"
   }
 }

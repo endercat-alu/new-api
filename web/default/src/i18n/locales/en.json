@@ -4733,6 +4733,9 @@
     "Channel {{name}}": "Channel {{name}}",
     "Channel {{name}} model {{model}}": "Channel {{name}} model {{model}}",
     "Model {{model}}": "Model {{model}}",
-    "Response time: {{duration}}": "Response time: {{duration}}"
+    "Response time: {{duration}}": "Response time: {{duration}}",
+    "No models with unset prices": "No models with unset prices",
+    "Unset price models": "Unset price models",
+    "Failed to load enabled models": "Failed to load enabled models"
   }
 }
