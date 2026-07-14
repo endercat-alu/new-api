@@ -25,11 +25,14 @@ import {
   getExpandedRowModel,
   type OnChangeFn,
   type SortingState,
-  type VisibilityState,
   type ExpandedState,
   type Row,
 } from '@tanstack/react-table'
-import { useDebounce, useMediaQuery } from '@/hooks'
+import {
+  useDebounce,
+  useMediaQuery,
+  usePersistedColumnVisibility,
+} from '@/hooks'
 import { useTranslation } from 'react-i18next'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
@@ -58,6 +61,7 @@ import { useChannels } from './channels-provider'
 import { DataTableBulkActions } from './data-table-bulk-actions'
 
 const route = getRouteApi('/_authenticated/channels/')
+const CHANNELS_COLUMN_VISIBILITY_STORAGE_KEY = 'channels:column-visibility'
 
 const CHANNEL_SORTABLE_COLUMNS = new Set<ChannelSortBy>([
   'id',
@@ -85,10 +89,13 @@ export function ChannelsTable() {
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-    models: false,
-    tag: false,
-  })
+  const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility(
+    CHANNELS_COLUMN_VISIBILITY_STORAGE_KEY,
+    {
+      models: false,
+      tag: false,
+    }
+  )
 
   useEffect(() => {
     setColumnVisibility((prev) => ({
@@ -97,7 +104,7 @@ export function ChannelsTable() {
       response_time: !isCompact,
       test_time: !isCompact,
     }))
-  }, [isCompact])
+  }, [isCompact, setColumnVisibility])
   const [rowSelection, setRowSelection] = useState({})
   const [expanded, setExpanded] = useState<ExpandedState>({})
 

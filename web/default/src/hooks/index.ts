@@ -27,6 +27,7 @@ export { useNotifications } from './use-notifications'
 
 // Utils
 export { useDebounce } from './use-debounce'
+export { usePersistedColumnVisibility } from './use-persisted-column-visibility'
 
 // Media Query
 export { useMediaQuery } from './use-media-query'
