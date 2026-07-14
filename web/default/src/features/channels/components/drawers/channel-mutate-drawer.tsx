@@ -129,8 +129,10 @@ import {
 import { useChannelMutateForm } from '../../hooks/use-channel-mutate-form'
 import {
   CHANNEL_FORM_DEFAULT_VALUES,
+  CHANNEL_TYPE_ADVANCED_CUSTOM,
   channelFormSchema,
   channelsQueryKeys,
+  getAdvancedCustomStats,
   transformChannelToFormDefaults,
   type ChannelFormValues,
   deduplicateKeys,
@@ -155,6 +157,7 @@ import {
   MissingModelsConfirmationDialog,
   type MissingModelsAction,
 } from '../dialogs/missing-models-confirmation-dialog'
+import { AdvancedCustomEditorDialog } from '../dialogs/advanced-custom-editor-dialog'
 import { ParamOverrideEditorDialog } from '../dialogs/param-override-editor-dialog'
 import { ModelMappingEditor } from '../model-mapping-editor'
 import {
@@ -196,6 +199,7 @@ const MODEL_MAPPING_PREVIEW_FALLBACK: Array<{
 }> = [{ source: 'client-model', target: 'upstream-model' }]
 
 const ADVANCED_SETTINGS_EXPANDED_KEY = 'channel-advanced-settings-expanded'
+const ADVANCED_CUSTOM_ROUTE_TYPE_PREVIEW_LIMIT = 3
 const UPSTREAM_DETECTED_MODEL_PREVIEW_LIMIT = 8
 
 function readAdvancedSettingsPreference(): boolean {
@@ -207,6 +211,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
   return Boolean(
     values.param_override?.trim() ||
     values.header_override?.trim() ||
+    values.advanced_custom?.trim() ||
     values.status_code_mapping?.trim() ||
     values.remark?.trim() ||
     values.priority ||
@@ -294,6 +299,8 @@ export function ChannelMutateDrawer({
   >(null)
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false)
   const [paramOverrideEditorOpen, setParamOverrideEditorOpen] = useState(false)
+  const [advancedCustomEditorOpen, setAdvancedCustomEditorOpen] =
+    useState(false)
   const [tagSearch, setTagSearch] = useState('')
   const debouncedTagSearch = useDebounce(tagSearch, 300)
 
@@ -408,6 +415,23 @@ export function ChannelMutateDrawer({
   const isBatchMode =
     multiKeyMode === 'batch' || multiKeyMode === 'multi_to_single'
   const isChannelDetailLoading = isEditing && isChannelLoading
+  const currentAdvancedCustom = form.watch('advanced_custom')
+  const advancedCustomStats = useMemo(
+    () => getAdvancedCustomStats(currentAdvancedCustom),
+    [currentAdvancedCustom]
+  )
+  const advancedCustomRouteTypeLabels =
+    advancedCustomStats.routeTypeLabels.slice(
+      0,
+      ADVANCED_CUSTOM_ROUTE_TYPE_PREVIEW_LIMIT
+    )
+  const hiddenAdvancedCustomRouteTypeCount =
+    advancedCustomStats.routeTypeLabels.length -
+    advancedCustomRouteTypeLabels.length
+  const advancedCustomRouteTypeTitle =
+    hiddenAdvancedCustomRouteTypeCount > 0
+      ? advancedCustomStats.routeTypeLabels.join(', ')
+      : undefined
 
   // Get all models list
   const allModelsList = useMemo(
@@ -1843,6 +1867,70 @@ export function ChannelMutateDrawer({
                       />
                     )}
 
+                    {currentType === CHANNEL_TYPE_ADVANCED_CUSTOM && (
+                      <FormField
+                        control={form.control}
+                        name='advanced_custom'
+                        render={({ field }) => (
+                          <FormItem className='space-y-3 border-y py-4'>
+                            <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
+                              <div className='space-y-2'>
+                                <FormLabel>
+                                  {t('Advanced Custom Routes')}
+                                </FormLabel>
+                                <div className='flex flex-wrap gap-2'>
+                                  <Badge variant='secondary'>
+                                    {t('Routes')}:{' '}
+                                    {advancedCustomStats.routeCount}
+                                  </Badge>
+                                  {advancedCustomRouteTypeLabels.map(
+                                    (label) => (
+                                      <Badge
+                                        key={label}
+                                        variant='outline'
+                                        className='max-w-[12rem]'
+                                        title={label}
+                                      >
+                                        <span className='truncate'>
+                                          {label}
+                                        </span>
+                                      </Badge>
+                                    )
+                                  )}
+                                  {hiddenAdvancedCustomRouteTypeCount > 0 && (
+                                    <Badge
+                                      variant='outline'
+                                      title={advancedCustomRouteTypeTitle}
+                                    >
+                                      +{hiddenAdvancedCustomRouteTypeCount}
+                                    </Badge>
+                                  )}
+                                  {!advancedCustomStats.valid && (
+                                    <Badge variant='destructive'>
+                                      {t('Incomplete')}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='sm'
+                                onClick={() => setAdvancedCustomEditorOpen(true)}
+                              >
+                                <Route className='mr-2 h-4 w-4' />
+                                {t('Configure routes')}
+                              </Button>
+                            </div>
+                            <FormControl>
+                              <input type='hidden' {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
                     <ChannelAuthSection>
                       {!isEditing && (
                         <FormField
@@ -3222,6 +3310,31 @@ export function ChannelMutateDrawer({
                             </FormItem>
                           )}
                         />
+
+                        <FormField
+                          control={form.control}
+                          name='disable_task_polling_sleep'
+                          render={({ field }) => (
+                            <FormItem className='flex items-center justify-between px-4 py-3'>
+                              <div className='space-y-0.5'>
+                                <FormLabel>
+                                  {t('Skip async task polling delay')}
+                                </FormLabel>
+                                <FormDescription>
+                                  {t(
+                                    'Do not wait one second between polling async tasks for this channel'
+                                  )}
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                       </div>
 
                       <FormField
@@ -3473,6 +3586,20 @@ export function ChannelMutateDrawer({
           onOpenChange={setParamOverrideEditorOpen}
           onSave={(nextValue) => {
             form.setValue('param_override', nextValue, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }}
+        />
+      )}
+
+      {advancedCustomEditorOpen && (
+        <AdvancedCustomEditorDialog
+          open={advancedCustomEditorOpen}
+          value={form.watch('advanced_custom') || ''}
+          onOpenChange={setAdvancedCustomEditorOpen}
+          onSave={(nextValue) => {
+            form.setValue('advanced_custom', nextValue, {
               shouldDirty: true,
               shouldValidate: true,
             })
