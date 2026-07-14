@@ -155,10 +155,11 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 	}
 	if req.InputReference != "" {
 		req.Images = []string{req.InputReference}
-	}
-	if len(req.Images) == 0 && strings.TrimSpace(req.Image) != "" {
-		req.Images = []string{strings.TrimSpace(req.Image)}
-		req.Image = strings.TrimSpace(req.Image)
+	} else if len(req.Images) == 0 && strings.TrimSpace(req.Image) != "" {
+		// 兼容单图上传
+		image := strings.TrimSpace(req.Image)
+		req.Image = image
+		req.Images = []string{image}
 	}
 
 	if strings.TrimSpace(req.Model) == "" {
