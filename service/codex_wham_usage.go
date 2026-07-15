@@ -1,11 +1,15 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/google/uuid"
 )
 
 func FetchCodexWhamUsage(
@@ -14,6 +18,54 @@ func FetchCodexWhamUsage(
 	baseURL string,
 	accessToken string,
 	accountID string,
+) (statusCode int, body []byte, err error) {
+	return doCodexWhamRequest(ctx, client, baseURL, accessToken, accountID, http.MethodGet, "/backend-api/wham/usage", nil)
+}
+
+func FetchCodexWhamRateLimitResetCredits(
+	ctx context.Context,
+	client *http.Client,
+	baseURL string,
+	accessToken string,
+	accountID string,
+) (statusCode int, body []byte, err error) {
+	return doCodexWhamRequest(ctx, client, baseURL, accessToken, accountID, http.MethodGet, "/backend-api/wham/rate-limit-reset-credits", nil)
+}
+
+func ConsumeCodexWhamRateLimitResetCredit(
+	ctx context.Context,
+	client *http.Client,
+	baseURL string,
+	accessToken string,
+	accountID string,
+) (statusCode int, body []byte, err error) {
+	requestBody, err := common.Marshal(map[string]string{
+		"redeem_request_id": uuid.NewString(),
+	})
+	if err != nil {
+		return 0, nil, err
+	}
+	return doCodexWhamRequest(
+		ctx,
+		client,
+		baseURL,
+		accessToken,
+		accountID,
+		http.MethodPost,
+		"/backend-api/wham/rate-limit-reset-credits/consume",
+		requestBody,
+	)
+}
+
+func doCodexWhamRequest(
+	ctx context.Context,
+	client *http.Client,
+	baseURL string,
+	accessToken string,
+	accountID string,
+	method string,
+	path string,
+	requestBody []byte,
 ) (statusCode int, body []byte, err error) {
 	if client == nil {
 		return 0, nil, fmt.Errorf("nil http client")
@@ -31,15 +83,18 @@ func FetchCodexWhamUsage(
 		return 0, nil, fmt.Errorf("empty accountID")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, bu+"/backend-api/wham/usage", nil)
+	var bodyReader io.Reader
+	if requestBody != nil {
+		bodyReader = bytes.NewReader(requestBody)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, bu+path, bodyReader)
 	if err != nil {
 		return 0, nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+at)
-	req.Header.Set("chatgpt-account-id", aid)
-	req.Header.Set("Accept", "application/json")
-	if req.Header.Get("originator") == "" {
-		req.Header.Set("originator", "codex_cli_rs")
+	setCodexWhamRequestHeaders(req, at, aid)
+	if requestBody != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 
 	resp, err := client.Do(req)
@@ -53,4 +108,13 @@ func FetchCodexWhamUsage(
 		return resp.StatusCode, nil, err
 	}
 	return resp.StatusCode, body, nil
+}
+
+func setCodexWhamRequestHeaders(req *http.Request, accessToken string, accountID string) {
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("chatgpt-account-id", accountID)
+	req.Header.Set("Accept", "application/json")
+	if req.Header.Get("originator") == "" {
+		req.Header.Set("originator", "codex_cli_rs")
+	}
 }

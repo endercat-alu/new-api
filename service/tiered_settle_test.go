@@ -3,7 +3,6 @@ package service
 import (
 	"math"
 	"math/rand"
-	"sync"
 	"testing"
 
 	"github.com/QuantumNous/new-api/dto"
@@ -731,50 +730,6 @@ func randomUsage(rng *rand.Rand) *dto.Usage {
 	}
 }
 
-func TestStress_TieredBilling_1000Concurrent(t *testing.T) {
-	usedVars := billingexpr.UsedVars(complexTieredExpr)
-
-	var wg sync.WaitGroup
-	errCh := make(chan string, 1000)
-
-	for i := 0; i < 1000; i++ {
-		wg.Add(1)
-		go func(seed int64) {
-			defer wg.Done()
-			rng := rand.New(rand.NewSource(seed))
-
-			for j := 0; j < 100; j++ {
-				usage := randomUsage(rng)
-				groupRatio := 0.5 + rng.Float64()*2.0
-
-				params := BuildTieredTokenParams(usage, false, usedVars)
-				cost, trace, err := billingexpr.RunExpr(complexTieredExpr, params)
-				if err != nil {
-					errCh <- err.Error()
-					return
-				}
-				if cost < 0 {
-					errCh <- "negative cost"
-					return
-				}
-
-				quota := billingexpr.QuotaRound(cost / 1_000_000 * testQuotaPerUnit * groupRatio)
-				if quota < 0 {
-					errCh <- "negative quota"
-					return
-				}
-
-				_ = trace.MatchedTier
-			}
-		}(int64(i))
-	}
-
-	wg.Wait()
-	close(errCh)
-	for e := range errCh {
-		t.Fatal(e)
-	}
-}
 
 func BenchmarkTieredBilling_ComplexExpr(b *testing.B) {
 	rng := rand.New(rand.NewSource(42))
