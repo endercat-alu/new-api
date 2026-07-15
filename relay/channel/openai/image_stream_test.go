@@ -139,9 +139,7 @@ func TestOpenaiImageStreamHandlerUsesCompletedEventCount(t *testing.T) {
 	require.Equal(t, 2.0, info.PriceData.OtherRatios()["n"])
 }
 
-// blockingBody serves one SSE chunk, then blocks until Close (the scanner's
-// cleanup) and returns EOF — keeping the upstream "open" while the client-side
-// disconnect is simulated elsewhere.
+// One SSE chunk then block until Close (simulates open upstream on disconnect).
 type blockingBody struct {
 	mu     sync.Mutex
 	sent   bool
@@ -173,11 +171,7 @@ func (b *blockingBody) Close() error {
 	return nil
 }
 
-// cancelAfterWriter cancels the request context right after the payload
-// containing needle has been written to the client, simulating a client that
-// disconnects after receiving that event. Cancelling from the write side (not
-// the upstream read side) makes the abort deterministic: the handler has
-// already processed and counted the event when the disconnect fires.
+// Cancel ctx after writing needle so the abort is post-count deterministic.
 type cancelAfterWriter struct {
 	gin.ResponseWriter
 	needle string
@@ -215,11 +209,6 @@ func newDisconnectingImageStream(t *testing.T, sseBody, disconnectAfter string) 
 	return c, recorder, resp, info
 }
 
-// TestOpenaiImageStreamHandlerClientDisconnectKeepsRequestedCount guards the
-// billing invariant: completed-event counting must not lower the charge when
-// the client aborts the stream. Upstream already generated (and charged for)
-// all requested images, so a disconnect after the first completed event keeps
-// the requested n instead of dropping it to 1.
 func TestOpenaiImageStreamHandlerClientDisconnectKeepsRequestedCount(t *testing.T) {
 	oldMode := gin.Mode()
 	gin.SetMode(gin.TestMode)
@@ -239,8 +228,7 @@ func TestOpenaiImageStreamHandlerClientDisconnectKeepsRequestedCount(t *testing.
 	require.Nil(t, err)
 	require.NotNil(t, usage)
 	require.NotNil(t, info.StreamStatus)
-	// A client abort surfaces as client_gone (main-loop ctx watch) or
-	// handler_stop (failed client write); both must be treated as untrusted.
+	// client_gone and handler_stop are untrusted for lowering n.
 	require.Contains(t,
 		[]relaycommon.StreamEndReason{relaycommon.StreamEndReasonClientGone, relaycommon.StreamEndReasonHandlerStop},
 		info.StreamStatus.EndReason)
@@ -248,9 +236,6 @@ func TestOpenaiImageStreamHandlerClientDisconnectKeepsRequestedCount(t *testing.
 	require.Equal(t, 3.0, info.PriceData.OtherRatios()["n"], "client abort must not reduce the billed image count")
 }
 
-// TestOpenaiImageStreamHandlerClientDisconnectRaisesCount covers the other
-// direction of the abort guard: when completed events already exceed the
-// recorded n, the higher actual count is billed even though the client aborted.
 func TestOpenaiImageStreamHandlerClientDisconnectRaisesCount(t *testing.T) {
 	oldMode := gin.Mode()
 	gin.SetMode(gin.TestMode)

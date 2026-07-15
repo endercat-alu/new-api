@@ -90,8 +90,7 @@ func TestGetFlowQuotaDataUsesQuotaDataRoleSpecificDimensions(t *testing.T) {
 	rootRows, err := GetFlowQuotaData(900, 2000, "", 0, common.RoleRootUser)
 	require.NoError(t, err)
 	require.Len(t, rootRows, 3)
-	// Token 11 was soft-deleted, so its name is intentionally left empty for the
-	// frontend to render a localized "deleted (id)" label instead.
+	// Token 11 soft-deleted: TokenName stays empty.
 	require.Equal(t, FlowQuotaData{
 		UserID:      1,
 		Username:    "alice",

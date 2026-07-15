@@ -461,11 +461,9 @@ func downgradeUserGroupForSubscriptionTx(tx *gorm.DB, sub *UserSubscription, now
 	if activeQuery.Error == nil && activeQuery.RowsAffected > 0 {
 		return "", nil
 	}
-	// Determine the downgrade target: an explicit downgrade group takes precedence,
-	// otherwise revert to the group held before purchase (legacy behavior).
+	// Explicit downgrade group wins; else PrevUserGroup when upgrade elevated user.
 	target := downgradeGroup
 	if target == "" {
-		// Legacy behavior: only revert when the subscription actually elevated the user.
 		if currentGroup != upgradeGroup {
 			return "", nil
 		}
@@ -1159,8 +1157,7 @@ func ExpireDueSubscriptions(limit int) (int, error) {
 				return nil
 			}
 
-			// Find the most recently expired subscription that defines a group transition
-			// (an explicit downgrade target or an upgrade snapshot to revert).
+			// Most recent expired sub that defines a group transition.
 			var lastExpired UserSubscription
 			expiredQuery := tx.Where("user_id = ? AND status = ? AND (downgrade_group <> '' OR upgrade_group <> '')",
 				userId, "expired").
@@ -1174,9 +1171,7 @@ func ExpireDueSubscriptions(limit int) (int, error) {
 			if err != nil {
 				return err
 			}
-			// An explicit downgrade group takes precedence; otherwise revert to the
-			// group held before purchase (legacy behavior, only when the subscription
-			// actually elevated the user).
+			// Explicit downgrade group wins; else PrevUserGroup if upgrade elevated user.
 			target := strings.TrimSpace(lastExpired.DowngradeGroup)
 			if target == "" {
 				upgradeGroup := strings.TrimSpace(lastExpired.UpgradeGroup)

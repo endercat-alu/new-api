@@ -6,7 +6,6 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 )
 
-// ResponseOpenAI2Gemini 将 OpenAI 响应转换为 Gemini 格式
 func ResponseOpenAI2Gemini(openAIResponse *dto.OpenAITextResponse, info *relaycommon.RelayInfo) *dto.GeminiChatResponse {
 	totalTokens := openAIResponse.TotalTokens
 	if totalTokens == 0 {
@@ -32,7 +31,6 @@ func ResponseOpenAI2Gemini(openAIResponse *dto.OpenAITextResponse, info *relayco
 			SafetyRatings: []dto.GeminiChatSafetyRating{},
 		}
 
-		// 设置结束原因
 		var finishReason string
 		switch choice.FinishReason {
 		case "stop":
@@ -48,7 +46,6 @@ func ResponseOpenAI2Gemini(openAIResponse *dto.OpenAITextResponse, info *relayco
 		}
 		candidate.FinishReason = &finishReason
 
-		// 转换消息内容
 		content := dto.GeminiChatContent{
 			Role:  "model",
 			Parts: make([]dto.GeminiPart, 0),
@@ -89,9 +86,7 @@ func ResponseOpenAI2Gemini(openAIResponse *dto.OpenAITextResponse, info *relayco
 	return geminiResponse
 }
 
-// StreamResponseOpenAI2Gemini 将 OpenAI 流式响应转换为 Gemini 格式
 func StreamResponseOpenAI2Gemini(openAIResponse *dto.ChatCompletionsStreamResponse, info *relaycommon.RelayInfo) *dto.GeminiChatResponse {
-	// 检查是否有实际内容或结束标志
 	hasContent := false
 	hasFinishReason := false
 	for _, choice := range openAIResponse.Choices {
@@ -103,7 +98,6 @@ func StreamResponseOpenAI2Gemini(openAIResponse *dto.ChatCompletionsStreamRespon
 		}
 	}
 
-	// 如果没有实际内容且没有结束标志，跳过。主要针对 openai 流响应开头的空数据
 	if !hasContent && !hasFinishReason {
 		return nil
 	}
@@ -138,7 +132,6 @@ func StreamResponseOpenAI2Gemini(openAIResponse *dto.ChatCompletionsStreamRespon
 			SafetyRatings: []dto.GeminiChatSafetyRating{},
 		}
 
-		// 设置结束原因
 		if choice.FinishReason != nil {
 			var finishReason string
 			switch *choice.FinishReason {
@@ -156,16 +149,13 @@ func StreamResponseOpenAI2Gemini(openAIResponse *dto.ChatCompletionsStreamRespon
 			candidate.FinishReason = &finishReason
 		}
 
-		// 转换消息内容
 		content := dto.GeminiChatContent{
 			Role:  "model",
 			Parts: make([]dto.GeminiPart, 0),
 		}
 
-		// 处理工具调用
 		if choice.Delta.ToolCalls != nil {
 			for _, toolCall := range choice.Delta.ToolCalls {
-				// 解析参数
 				var args map[string]interface{}
 				if toolCall.Function.Arguments != "" {
 					if err := common.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
@@ -184,7 +174,6 @@ func StreamResponseOpenAI2Gemini(openAIResponse *dto.ChatCompletionsStreamRespon
 				content.Parts = append(content.Parts, part)
 			}
 		} else {
-			// 处理文本内容
 			textContent := choice.Delta.GetContentString()
 			if textContent != "" {
 				part := dto.GeminiPart{

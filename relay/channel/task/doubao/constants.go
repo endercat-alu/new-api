@@ -13,16 +13,14 @@ var ModelList = []string{
 
 var ChannelName = "doubao-video"
 
-// videoPriceKey 价格表的键：输出分辨率档（is1080p/is4k 均为 false 即 480p/720p 基准档）、输入是否含视频。
+// videoPriceKey: output resolution tier + whether input includes video.
 type videoPriceKey struct {
 	is1080p  bool
 	is4k     bool
 	hasVideo bool
 }
 
-// videoPriceTable 各模型在不同 (输出分辨率档, 是否含视频输入) 下的单价（元/百万 token）。
-// 其中零值键 {480p/720p, 不含视频} 为基准价，等于管理员应配置的 ModelRatio；
-// 计费时取 实际单价/基准价 作为 OtherRatio。
+// videoPriceTable yuan/MTok; zero-key is base ModelRatio; OtherRatio = price/base.
 var videoPriceTable = map[string]map[videoPriceKey]float64{
 	"doubao-seedance-2-0-260128": {
 		{hasVideo: false}:                46.0,
@@ -38,8 +36,7 @@ var videoPriceTable = map[string]map[videoPriceKey]float64{
 	},
 }
 
-// GetVideoInputRatio 返回指定模型在给定输出分辨率/是否含视频输入下，相对基准价的计费倍率。
-// 第二个返回值表示该模型是否配置了价格表；倍率为 1.0 时调用方可忽略该 OtherRatio。
+// Relative OtherRatio for (model, resolution, hasVideoInput); ok if table exists.
 func GetVideoInputRatio(modelName, resolution string, hasVideo bool) (float64, bool) {
 	prices, ok := videoPriceTable[modelName]
 	base := prices[videoPriceKey{}] // 零值键 = {480p/720p, 不含视频} 基准价
@@ -49,7 +46,7 @@ func GetVideoInputRatio(modelName, resolution string, hasVideo bool) (float64, b
 	res := strings.ToLower(strings.TrimSpace(resolution))
 	price, ok := prices[videoPriceKey{is1080p: res == "1080p", is4k: res == "4k", hasVideo: hasVideo}]
 	if !ok {
-		// 未配置的组合（如 fast 无 1080p/4k，上游会自行报错）按基准价计费即可。
+		// Unlisted combos bill at base ratio.
 		return 1.0, true
 	}
 	return price / base, true

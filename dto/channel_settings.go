@@ -122,9 +122,7 @@ const (
 	advancedCustomEndpointPathEmbeddings             = "/v1/embeddings"
 )
 
-// MatchPath returns the first route whose IncomingPath matches requestPath.
-// Matching mirrors the relay adaptor: exact match, {model} placeholder, and
-// :generateContent <-> :streamGenerateContent equivalence.
+// MatchPath: exact/{model}/generateContent equivalence, same as the relay adaptor.
 func (c *AdvancedCustomConfig) MatchPath(requestPath string) (AdvancedCustomRoute, bool) {
 	if c == nil {
 		return AdvancedCustomRoute{}, false
@@ -137,8 +135,7 @@ func (c *AdvancedCustomConfig) MatchPath(requestPath string) (AdvancedCustomRout
 	return AdvancedCustomRoute{}, false
 }
 
-// MatchPathForModel returns the first route whose IncomingPath and Models match.
-// An empty Models list is a catch-all fallback for that incoming path.
+// MatchPathForModel: empty Models is a catch-all for that path.
 func (c *AdvancedCustomConfig) MatchPathForModel(requestPath string, model string) (AdvancedCustomRoute, bool) {
 	if c == nil {
 		return AdvancedCustomRoute{}, false
@@ -153,13 +150,11 @@ func (c *AdvancedCustomConfig) MatchPathForModel(requestPath string, model strin
 	return AdvancedCustomRoute{}, false
 }
 
-// SupportsPath reports whether any route matches requestPath.
 func (c *AdvancedCustomConfig) SupportsPath(requestPath string) bool {
 	_, ok := c.MatchPath(requestPath)
 	return ok
 }
 
-// SupportsPathForModel reports whether any route matches requestPath and model.
 func (c *AdvancedCustomConfig) SupportsPathForModel(requestPath string, model string) bool {
 	_, ok := c.MatchPathForModel(requestPath, model)
 	return ok
@@ -233,10 +228,7 @@ func matchAdvancedCustomRouteModel(models []string, model string) bool {
 	return false
 }
 
-// advancedCustomModelRegexCache caches compiled route model patterns. Route model
-// matching runs on the request hot path (distributor affinity, ability filtering,
-// channel cache filtering, adaptor resolve), so patterns must not be recompiled per
-// request. Invalid patterns are cached as nil to avoid recompiling them as well.
+// Hot-path regex cache; invalid patterns cached as nil.
 var advancedCustomModelRegexCache sync.Map // pattern string -> *regexp.Regexp (nil when invalid)
 
 func compileAdvancedCustomModelRegex(pattern string) *regexp.Regexp {

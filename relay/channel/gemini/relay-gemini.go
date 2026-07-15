@@ -37,11 +37,7 @@ func attachEstimatedGeminiBillingUsage(usage *dto.Usage) *dto.Usage {
 	return usage
 }
 
-// patchGeminiZeroCompletionUsage estimates completion tokens locally when upstream
-// usageMetadata was billable but reported zero completion tokens even though output
-// content was actually received. Typical case: the client aborts a stream before the
-// final chunk that carries candidatesTokenCount, leaving prompt-only metadata; without
-// this patch the output side would settle at zero quota.
+// Zero completion + non-empty output (e.g. aborted stream): estimate completion locally.
 func patchGeminiZeroCompletionUsage(c *gin.Context, info *relaycommon.RelayInfo, usage *dto.Usage, responseText string, imageCount int) {
 	if usage == nil || usage.CompletionTokens > 0 {
 		return
@@ -55,9 +51,7 @@ func patchGeminiZeroCompletionUsage(c *gin.Context, info *relaycommon.RelayInfo,
 		usage.CompletionTokens = imageCount * 1400
 	}
 	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
-	// Overwrite the metadata-derived billing usage: effectiveBillingUsage prefers
-	// BillingUsage during settlement, so keeping the prompt-only metadata there
-	// would still bill zero completion tokens.
+	// Prefer estimated completion over prompt-only BillingUsage at settlement.
 	usage.BillingUsage = dto.NewEstimatedGeminiChatBillingUsage(usage)
 }
 

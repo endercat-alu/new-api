@@ -164,9 +164,7 @@ type RelayInfo struct {
 
 	PriceData types.PriceData
 
-	// QuotaClamp is set (non-nil) when a quota conversion saturated at the
-	// int32 bound (or NaN fallback) while computing this request's charge.
-	// It is surfaced onto the consume/task log's admin_info for auditing.
+	// Non-nil when charge conversion saturated; copied to log admin_info.
 	QuotaClamp *common.QuotaClamp
 
 	// TieredBillingSnapshot is a frozen snapshot of tiered billing rules

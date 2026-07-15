@@ -11,8 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// MaxImageN caps the image generation count. Without this bound a huge or
-// wrapped-negative n overflows quota calculation into a negative charge.
+// MaxImageN bounds image n so quota math cannot overflow into a credit.
 const MaxImageN = 128
 
 type ImageRequest struct {
@@ -160,9 +159,7 @@ func (i *ImageRequest) GetTokenCountMeta() *types.TokenCountMeta {
 		imageN = *i.N
 	}
 
-	// Keep n separate from ImagePriceRatio so size/quality and count remain
-	// independent billing dimensions. Fixed-price pre-consume stores this on
-	// PriceData, and image settlement reuses or replaces the same "n" ratio.
+	// Bill n separately from size/quality ratios.
 	return &types.TokenCountMeta{
 		CombineText:     i.Prompt,
 		MaxTokens:       1584,

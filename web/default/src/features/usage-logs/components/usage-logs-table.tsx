@@ -57,8 +57,7 @@ const logTypeRowTint: Record<number, string> = {
   [LOG_TYPE_ENUM.REFUND]: 'bg-blue-50/30 dark:bg-blue-950/15',
 }
 
-// Warning tint for logs where a quota conversion saturated (admin-only marker).
-// Takes precedence over the per-type tint since it flags a billing anomaly.
+// Admin-only saturation tint; overrides per-type row color.
 const quotaSaturationRowTint = 'bg-amber-50/60 dark:bg-amber-950/25'
 
 function deserializeLogTypeFilter(value: unknown): unknown[] {

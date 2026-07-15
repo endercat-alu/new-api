@@ -668,7 +668,6 @@ export function DetailsDialog(props: DetailsDialogProps) {
             )}
 
 
-            {/* Quota saturation marker (admin only) */}
             {props.isAdmin && other?.admin_info?.quota_saturation && (
               <DetailSection
                 icon={<AlertTriangle className='size-3.5' aria-hidden='true' />}

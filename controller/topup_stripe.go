@@ -31,10 +31,8 @@ type StripePayRequest struct {
 	Amount int64 `json:"amount"`
 	// PaymentMethod specifies the payment method (e.g., "stripe").
 	PaymentMethod string `json:"payment_method"`
-	// SuccessURL defaults to the server's /usage-logs page.
 	SuccessURL string `json:"success_url,omitempty"`
-	// CancelURL defaults to the server's /wallet page.
-	CancelURL string `json:"cancel_url,omitempty"`
+	CancelURL  string `json:"cancel_url,omitempty"`
 }
 
 type StripeAdaptor struct {

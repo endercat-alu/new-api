@@ -244,9 +244,7 @@ func TestCalculateTextQuotaSummaryBillsOpenAICacheWriteTokens(t *testing.T) {
 	})
 
 	t.Run("uncached remainder clamps to zero", func(t *testing.T) {
-		// Real OpenAI payload shape: cached_tokens + cache_write_tokens exceeds
-		// prompt_tokens because both are unadjusted prefix counts. The negative
-		// remainder must clamp to zero, never turn into a negative base charge.
+		// Overlapping cache prefixes must clamp remainder at 0.
 		usage := &dto.Usage{
 			PromptTokens:     3619,
 			CompletionTokens: 36,
@@ -498,12 +496,8 @@ func TestComposeTieredTextQuotaErrorFallbackUsesPreConsumedQuota(t *testing.T) {
 	require.Equal(t, 14500, quota)
 }
 
-// TestTryTieredSettleRecordsClampOnOverflow guards that an oversized tiered
-// settlement both saturates the quota and records the clamp on RelayInfo, so
-// every consume path (text, audio, WSS) can surface it under admin_info.
 func TestTryTieredSettleRecordsClampOnOverflow(t *testing.T) {
-	// exprOutput = p * 1e9; quotaBeforeGroup = p*1e9 / 1e6 * 5e5 far exceeds
-	// MaxInt32 and must saturate.
+	// Oversized tiered settlement must saturate MaxInt32.
 	exprStr := `tier("base", p * 1000000000)`
 	relayInfo := &relaycommon.RelayInfo{
 		OriginModelName: "overflow-model",
@@ -525,8 +519,6 @@ func TestTryTieredSettleRecordsClampOnOverflow(t *testing.T) {
 	require.Equal(t, common.QuotaClampOverflow, relayInfo.QuotaClamp.Kind)
 }
 
-// TestTryTieredSettleNoClampInRange confirms an in-range settlement leaves
-// RelayInfo.QuotaClamp nil.
 func TestTryTieredSettleNoClampInRange(t *testing.T) {
 	exprStr := `tier("base", p * 2 + c * 10)`
 	relayInfo := &relaycommon.RelayInfo{

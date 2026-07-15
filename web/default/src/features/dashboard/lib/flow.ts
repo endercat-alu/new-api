@@ -128,8 +128,7 @@ const DEFAULT_OTHER_FLOW_NODE_LABELS: Record<FlowNodeKind, string> = {
   channel: 'Other channels',
 }
 
-// Kinds whose labels can leak identity (people, keys, infra, business setup).
-// Model names are public, so they stay visible even when masking is on.
+// Sensitive kinds are masked; model names stay visible.
 const SENSITIVE_FLOW_KINDS = new Set<FlowNodeKind>([
   'user',
   'node',
@@ -249,8 +248,7 @@ const ROLE_FLOW_STAGES: Record<FlowRole, FlowNodeKind[]> = {
   user: ['token', 'group', 'model'],
 }
 
-// A Sankey needs at least two columns to draw any link, so hiding stages can
-// never collapse the path below this many columns.
+// Keep at least two Sankey columns so links remain drawable.
 const MIN_FLOW_STAGES = 2
 
 export function getFlowStages(role: FlowRole): FlowNodeKind[] {
@@ -651,8 +649,7 @@ function buildFlowHighlightSets(
   const nodeActive = Boolean(activeNode && stages.includes(activeNode.kind))
   if (!nodeActive && !activeLink) return undefined
 
-  // A link selection highlights paths that traverse that exact edge; otherwise
-  // fall back to highlighting paths that pass through the active node.
+  // Prefer exact-edge highlight; else paths through the active node.
   const matchesPath = (path: FlowPathNode[]): boolean => {
     if (activeLink) return pathContainsFlowLink(path, activeLink)
     return activeNode ? pathContainsFlowNode(path, activeNode) : false
@@ -682,9 +679,7 @@ function buildFlowHighlightSets(
   }
 }
 
-// Fully masks a label. Nodes stay distinct because the Sankey identifies them
-// by `key` (the node id), not by this display text, so identical masked labels
-// never merge.
+// Mask display text only; node identity is the Sankey key.
 const FLOW_MASK_TEXT = '\u2022\u2022\u2022\u2022'
 
 function maskFlowLabel(label: string): string {
@@ -692,9 +687,7 @@ function maskFlowLabel(label: string): string {
   return FLOW_MASK_TEXT
 }
 
-// Masks sensitive node/link labels in place. Node identity (`id`) is untouched,
-// so links, highlighting, and layout stay exactly the same; only the rendered
-// text changes.
+// Mask labels in place; node ids unchanged.
 function maskFlowGraphLabels(
   nodes: Map<string, DashboardFlowNode>,
   links: Map<string, DashboardFlowLink>
@@ -1297,11 +1290,7 @@ export function buildFlowSankeySpec(
         },
       },
     },
-    // Highlighting is driven entirely by our own `highlighted`/`dimmed` data
-    // flags (see fillOpacity above). VChart's built-in click emphasis is
-    // disabled because its Sankey "related" handler crashes on click
-    // (_handleLinkRelatedClick) and would otherwise fight our full-path
-    // highlight.
+    // Disable VChart Sankey click emphasis: _handleLinkRelatedClick crashes.
     emphasis: { enable: false },
     tooltip: {
       trigger: 'hover',

@@ -72,9 +72,6 @@ func TestGetAndValidOpenAIImageRequestMultipartStream(t *testing.T) {
 	})
 }
 
-// TestGetAndValidOpenAIImageRequestNBounds guards the billing invariant that
-// the image generation count can never reach quota calculation with a value
-// large enough to overflow int64 into a negative charge.
 func TestGetAndValidOpenAIImageRequestNBounds(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

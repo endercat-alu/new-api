@@ -121,7 +121,7 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 			if seconds <= 0 {
 				seconds = 4
 			}
-			// 历史任务数据可能包含未经校验的时长，作为计费乘数前必须钳制
+			// Historical task duration may be unbounded; clamp before billing.
 			if seconds > relaycommon.MaxTaskDurationSeconds {
 				seconds = relaycommon.MaxTaskDurationSeconds
 			}
@@ -194,7 +194,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		}
 	}
 
-	// 6. 将 OtherRatios 应用到基础额度（饱和转换，防止溢出成负数）
+	// Apply OtherRatios with saturating conversion.
 	if !common.StringsContains(constant.TaskPricePatches, modelName) {
 		quotaWithRatios := info.PriceData.ApplyOtherRatiosToFloat(float64(info.PriceData.Quota))
 		quota, clamp := common.QuotaFromFloatChecked(quotaWithRatios)
@@ -275,9 +275,7 @@ func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float6
 	return quota, true
 }
 
-// noteTaskQuotaClamp records the first quota saturation event onto the task's
-// RelayInfo so LogTaskConsumption can surface it on the submit log's
-// admin_info. First non-nil clamp wins.
+// noteTaskQuotaClamp keeps first non-nil clamp on task RelayInfo for submit log.
 func noteTaskQuotaClamp(info *relaycommon.RelayInfo, clamp *common.QuotaClamp) {
 	if clamp == nil || info == nil {
 		return

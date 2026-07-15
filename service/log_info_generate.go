@@ -16,11 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// attachQuotaSaturationToOther nests a quota saturation marker under
-// other.admin_info.quota_saturation. Nesting under admin_info makes it
-// admin-only for free, since model.formatUserLogs strips the whole admin_info
-// object for non-admin viewers. Creates admin_info if absent. No-op when the
-// clamp is nil (the common case: no saturation happened).
+// Nest clamp under other.admin_info.quota_saturation (stripped for non-admins).
 func attachQuotaSaturationToOther(other map[string]interface{}, clamp *common.QuotaClamp) {
 	if clamp == nil || other == nil {
 		return
@@ -33,9 +29,7 @@ func attachQuotaSaturationToOther(other map[string]interface{}, clamp *common.Qu
 	adminInfo["quota_saturation"] = clamp.AuditMap()
 }
 
-// attachQuotaSaturation records the request's quota clamp (if any) onto the
-// consume log's other.admin_info and emits a request-correlated backend audit
-// line. Called right before RecordConsumeLog on the text/audio/wss paths.
+// attachQuotaSaturation writes clamp to log other.admin_info and emits an audit line.
 func attachQuotaSaturation(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
 	if relayInfo == nil {
 		return
@@ -238,8 +232,7 @@ func appendFinalRequestFormat(relayInfo *relaycommon.RelayInfo, other map[string
 		return
 	}
 	if relayInfo.GetFinalRequestRelayFormat() == types.RelayFormatClaude {
-		// claude indicates the final upstream request format is Claude Messages.
-		// Frontend log rendering uses this to keep the original Claude input display.
+		// Final upstream format is Claude Messages.
 		other["claude"] = true
 	}
 }
@@ -300,9 +293,7 @@ func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData types.Price
 	return other
 }
 
-// InjectTieredBillingInfo overlays tiered billing fields onto an existing
-// module-specific other map. Call this after GenerateTextOtherInfo /
-// GenerateClaudeOtherInfo / etc. when the request used tiered_expr billing.
+// Overlay tiered_expr fields onto an existing other map.
 func InjectTieredBillingInfo(other map[string]interface{}, relayInfo *relaycommon.RelayInfo, result *billingexpr.TieredResult) {
 	if relayInfo == nil || other == nil {
 		return

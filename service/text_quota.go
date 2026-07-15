@@ -138,9 +138,7 @@ func calculateTextToolCallSurcharge(ctx *gin.Context, relayInfo *relaycommon.Rel
 	return surcharge
 }
 
-// noteQuotaClamp records the first quota saturation event onto relayInfo so it
-// can later be attached to the consume/task log for admin auditing. First
-// non-nil clamp wins (a single request may hit multiple conversions).
+// noteQuotaClamp keeps the first non-nil clamp on relayInfo for consume-log audit.
 func noteQuotaClamp(relayInfo *relaycommon.RelayInfo, clamp *common.QuotaClamp) {
 	if clamp == nil || relayInfo == nil {
 		return
@@ -165,9 +163,7 @@ func composeTieredTextQuota(relayInfo *relaycommon.RelayInfo, summary textQuotaS
 		}
 	}
 
-	// Saturate the final sum, not just the surcharge: tieredQuota can be near
-	// MaxQuota and adding the surcharge could push the total past the int32
-	// quota policy bound (persisted quota columns are 32-bit).
+	// Saturate final sum (tieredQuota + surcharge), not only the surcharge.
 	total, clamp := common.QuotaFromDecimalChecked(
 		decimal.NewFromInt(int64(tieredQuota)).Add(summary.ToolCallSurchargeQuota),
 	)
@@ -291,10 +287,7 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 			}
 		}
 
-		// OpenAI cache-write usage reports unadjusted prefix counts, so
-		// cached_tokens + cache_write_tokens can exceed prompt_tokens and the
-		// remainder can go negative. Clamp at zero so overlap never turns into
-		// a negative base charge.
+		// cache read+write prefixes may exceed prompt; clamp remainder at 0.
 		if baseTokens.IsNegative() {
 			baseTokens = decimal.Zero
 		}
@@ -465,16 +458,11 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	}
 	cacheWriteTokens := cacheWriteTokensTotal(summary)
 	if cacheWriteTokens > 0 {
-		// cache_write_tokens: normalized cache creation total for UI display.
-		// If split 5m/1h values are present, this is their sum; otherwise it falls back
-		// to cache_creation_tokens.
+		// cache_write_tokens: 5m+1h sum when split; else cache_creation_tokens.
 		other["cache_write_tokens"] = cacheWriteTokens
 	}
 	if relayInfo.GetFinalRequestRelayFormat() != types.RelayFormatClaude && usage != nil && usage.UsageSource != "" && usage.InputTokens > 0 {
-		// input_tokens_total: explicit normalized total input used by the usage log UI.
-		// Only write this field when upstream/current conversion has already provided a
-		// reliable total input value and tagged the usage source. Do not infer it from
-		// prompt/cache fields here, otherwise old upstream payloads may be double-counted.
+		// input_tokens_total only when upstream already provided a tagged total (no inference).
 		other["input_tokens_total"] = usage.InputTokens
 	}
 	if tieredBillingApplied {

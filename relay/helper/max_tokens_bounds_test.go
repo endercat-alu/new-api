@@ -11,11 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMaxTokensBounds guards the billing invariant that user-supplied max
-// token fields are bounded on every relay format. These values feed
-// pre-consume quota math (preConsumedTokens * ratio); a huge or
-// wrapped-negative value (e.g. 18446744073686646784 parsed into *uint) must
-// be rejected at validation instead of corrupting the pre-charge.
 func TestMaxTokensBounds(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

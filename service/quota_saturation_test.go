@@ -12,9 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAttachQuotaSaturationNestsUnderAdminInfo verifies the saturation marker
-// is nested under other.admin_info.quota_saturation so it is admin-only (the
-// log formatter strips admin_info for non-admin viewers).
 func TestAttachQuotaSaturationNestsUnderAdminInfo(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(nil)
@@ -42,8 +39,6 @@ func TestAttachQuotaSaturationNestsUnderAdminInfo(t *testing.T) {
 	require.Equal(t, common.MaxQuota, sat["clamped"])
 }
 
-// TestAttachQuotaSaturationPreservesExistingAdminInfo verifies the marker is
-// merged into a pre-existing admin_info map without clobbering it.
 func TestAttachQuotaSaturationPreservesExistingAdminInfo(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(nil)
@@ -61,8 +56,6 @@ func TestAttachQuotaSaturationPreservesExistingAdminInfo(t *testing.T) {
 	require.NotNil(t, adminInfo["quota_saturation"])
 }
 
-// TestAttachQuotaSaturationNoClampNoMarker verifies the common case (no
-// saturation) leaves the log untouched.
 func TestAttachQuotaSaturationNoClampNoMarker(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(nil)

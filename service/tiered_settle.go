@@ -9,15 +9,7 @@ import (
 // TieredResultWrapper wraps billingexpr.TieredResult for use at the service layer.
 type TieredResultWrapper = billingexpr.TieredResult
 
-// BuildTieredTokenParams constructs billingexpr.TokenParams from a dto.Usage,
-// normalizing P and C so they mean "tokens not separately priced by the
-// expression". Sub-categories (cache, image, audio) are only subtracted
-// when the expression references them via their own variable.
-//
-// GPT-format APIs report prompt_tokens / completion_tokens as totals that
-// include all sub-categories (cache, image, audio). Claude-format APIs
-// report them as text-only. This function normalizes to text-only when
-// sub-categories are separately priced.
+// Build TokenParams; subtract sub-categories only when the expression references them.
 func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVars map[string]bool) billingexpr.TokenParams {
 	p := float64(usage.PromptTokens)
 	c := float64(usage.CompletionTokens)
@@ -35,9 +27,7 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 	imgO := float64(usage.CompletionTokenDetails.ImageTokens)
 	ao := float64(usage.CompletionTokenDetails.AudioTokens)
 
-	// len = total input context length for tier condition evaluation.
-	// Non-Claude: prompt_tokens already includes everything.
-	// Claude: input_tokens is text-only, so add cache read + cache creation.
+	// len: full input context; Claude text-only input needs cache read+write added.
 	inputLen := p
 	if isClaudeUsageSemantic {
 		inputLen = p + cr + cc5m + cc1h
@@ -67,8 +57,7 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 		}
 	}
 
-	// OpenAI cache-write usage reports unadjusted prefix counts, so cr + cc can
-	// exceed the prompt and drive the remainder negative. Clamp at zero.
+	// cr+cc may exceed prompt; clamp remainder at 0.
 	if p < 0 {
 		p = 0
 	}
@@ -90,10 +79,7 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 	}
 }
 
-// TryTieredSettle checks if the request uses tiered_expr billing and, if so,
-// computes the actual quota using the frozen BillingSnapshot. Returns:
-//   - ok=true, quota, result  when tiered billing applies
-//   - ok=false, 0, nil        when it doesn't (caller should fall through to existing logic)
+// TryTieredSettle: ok when tiered_expr applies; else caller falls through.
 func TryTieredSettle(relayInfo *relaycommon.RelayInfo, params billingexpr.TokenParams) (ok bool, quota int, result *billingexpr.TieredResult) {
 	snap := relayInfo.TieredBillingSnapshot
 	if snap == nil || snap.BillingMode != "tiered_expr" {
@@ -114,9 +100,7 @@ func TryTieredSettle(relayInfo *relaycommon.RelayInfo, params billingexpr.TokenP
 		return true, quota, nil
 	}
 
-	// Surface any int32 saturation from settlement onto RelayInfo so the
-	// consume log records it under admin_info, regardless of which caller
-	// (text, audio, WSS) consumes the returned quota. First non-nil wins.
+	// First non-nil clamp wins on RelayInfo for admin_info audit.
 	noteQuotaClamp(relayInfo, tr.Clamp)
 
 	return true, tr.ActualQuotaAfterGroup, &tr

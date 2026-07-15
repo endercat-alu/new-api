@@ -78,9 +78,7 @@ func validatePrompt(prompt string) *dto.TaskError {
 	return nil
 }
 
-// MaxTaskDurationSeconds caps user-supplied video duration. Duration is used
-// as a billing multiplier (OtherRatio "seconds"); an unbounded value could
-// overflow quota calculation into a negative charge.
+// Cap video duration (billing multiplier) to prevent quota overflow.
 const MaxTaskDurationSeconds = 3600
 
 func validateTaskDurationBounds(req TaskSubmitReq) *dto.TaskError {
@@ -156,7 +154,6 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 	if req.InputReference != "" {
 		req.Images = []string{req.InputReference}
 	} else if len(req.Images) == 0 && strings.TrimSpace(req.Image) != "" {
-		// 兼容单图上传
 		image := strings.TrimSpace(req.Image)
 		req.Image = image
 		req.Images = []string{image}
@@ -244,7 +241,6 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 	}
 
 	if len(req.Images) == 0 && strings.TrimSpace(req.Image) != "" {
-		// 兼容单图上传
 		req.Images = []string{req.Image}
 	}
 

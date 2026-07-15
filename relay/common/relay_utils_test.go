@@ -32,9 +32,6 @@ func TestValidateMultipartDirectNormalizesImageField(t *testing.T) {
 	require.Equal(t, constant.TaskActionGenerate, info.Action)
 }
 
-// TestTaskDurationBounds guards the billing invariant that user-supplied
-// video duration (a quota multiplier via OtherRatio "seconds") is bounded, so
-// it can never overflow quota calculation into a negative charge.
 func TestTaskDurationBounds(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

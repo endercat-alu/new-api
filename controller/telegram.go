@@ -20,8 +20,7 @@ import (
 )
 
 const (
-	// The legacy Telegram widget has no nonce. Keep its signed assertion short-lived
-	// so captured callbacks cannot be reused indefinitely.
+	// Telegram widget has no nonce; keep signed assertion short-lived.
 	telegramAuthorizationMaxAge     = 5 * time.Minute
 	telegramAuthorizationFutureSkew = 2 * time.Minute
 )

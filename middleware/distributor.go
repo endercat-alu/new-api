@@ -490,8 +490,7 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	return nil
 }
 
-// channelSupportsRequestPath reports whether a channel can serve the request path.
-// Non-advanced-custom channels always support any path; advanced custom requires a matching route.
+// Type-58 requires a matching route; all other channel types always pass.
 func channelSupportsRequestPath(channel *model.Channel, requestPath string, requestModel string) bool {
 	if channel == nil || channel.Type != constant.ChannelTypeAdvancedCustom {
 		return true

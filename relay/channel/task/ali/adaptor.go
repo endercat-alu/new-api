@@ -338,8 +338,7 @@ func normalizeWan27I2VInput(aliReq *AliVideoRequest, req relaycommon.TaskSubmitR
 		return fmt.Errorf("wan2.7-i2v requires image, images, input_reference, or input.media")
 	}
 
-	// Wan2.7 image-to-video uses the new input.media protocol. Avoid sending
-	// legacy fields that belong to wan2.6 and earlier image-to-video APIs.
+	// Wan2.7 i2v uses input.media; omit wan2.6-legacy fields.
 	aliReq.Input.ImgURL = ""
 	aliReq.Input.FirstFrameURL = ""
 	aliReq.Input.LastFrameURL = ""
@@ -456,8 +455,7 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		return nil
 	}
 
-	// metadata can override Duration past standard request validation;
-	// cap it because it is used as a billing multiplier.
+	// metadata Duration bypasses validation; cap as billing multiplier.
 	otherRatios := map[string]float64{
 		"seconds": float64(min(aliReq.Parameters.Duration, relaycommon.MaxTaskDurationSeconds)),
 	}

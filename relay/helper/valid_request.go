@@ -114,9 +114,7 @@ func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.Embeddi
 	return embeddingRequest, nil
 }
 
-// maxTokensLimit bounds user-supplied max token fields. These values feed
-// pre-consume quota math (preConsumedTokens * ratio); an unbounded value can
-// overflow the conversion and corrupt billing.
+// Bound max token fields that feed pre-consume quota math.
 const maxTokensLimit = math.MaxInt32 / 2
 
 func exceedsMaxTokensLimit(values ...*uint) bool {
@@ -252,9 +250,6 @@ func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageReq
 			}
 		}
 
-		//if imageRequest.Prompt == "" {
-		//	return nil, errors.New("prompt is required")
-		//}
 
 		if imageRequest.N == nil || *imageRequest.N == 0 {
 			imageRequest.N = common.GetPointer(uint(1))
@@ -280,9 +275,6 @@ func GetAndValidateClaudeRequest(c *gin.Context) (textRequest *dto.ClaudeRequest
 		return nil, errors.New("max_tokens is invalid")
 	}
 
-	//if textRequest.Stream {
-	//	relayInfo.IsStream = true
-	//}
 
 	return textRequest, nil
 }
@@ -327,8 +319,7 @@ func GetAndValidateTextRequest(c *gin.Context, relayMode int) (*dto.GeneralOpenA
 			return nil, errors.New("field prompt is required")
 		}
 	case relayconstant.RelayModeChatCompletions:
-		// For FIM (Fill-in-the-middle) requests with prefix/suffix, messages is optional
-		// It will be filled by provider-specific adaptors if needed (e.g., SiliconFlow)。Or it is allowed by model vendor(s) (e.g., DeepSeek)
+		// FIM with prefix/suffix: messages optional.
 		if len(textRequest.Messages) == 0 && textRequest.Prefix == nil && textRequest.Suffix == nil {
 			return nil, errors.New("field messages is required")
 		}
@@ -358,9 +349,6 @@ func GetAndValidateGeminiRequest(c *gin.Context) (*dto.GeminiChatRequest, error)
 		return nil, errors.New("maxOutputTokens is invalid")
 	}
 
-	//if c.Query("alt") == "sse" {
-	//	relayInfo.IsStream = true
-	//}
 
 	return request, nil
 }

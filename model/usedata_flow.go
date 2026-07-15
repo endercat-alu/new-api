@@ -119,8 +119,7 @@ func fillFlowTokenNames(rows []*FlowQuotaData) error {
 	for _, token := range tokens {
 		tokenNameByID[token.Id] = token.Name
 	}
-	// Deleted tokens are intentionally not resolved here: leave TokenName empty
-	// so the frontend can render a localized "deleted (id)" label instead.
+	// Soft-deleted tokens leave TokenName empty for the caller to label.
 	for _, row := range rows {
 		if name := tokenNameByID[row.TokenID]; name != "" {
 			row.TokenName = name

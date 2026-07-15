@@ -109,9 +109,7 @@ export interface LogOtherData {
     // Manage audit fields (type=3, admin only)
     admin_username?: string
     admin_id?: number | string
-    // Quota saturation marker: set when a quota conversion clamped at the
-    // int32 bound (overflow/underflow) or hit a NaN fallback while computing
-    // this request's charge. Admin-only (nested under admin_info).
+    // Admin-only int32/NaN saturation marker under admin_info.
     quota_saturation?: {
       op: string
       kind: 'overflow' | 'underflow' | 'nan'

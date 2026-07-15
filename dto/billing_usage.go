@@ -31,9 +31,7 @@ func NewClaudeMessagesBillingUsage(usage *ClaudeUsage) *BillingUsage {
 	}
 }
 
-// HasClaudeUsageTokens mirrors HasOpenAIUsageTokens/HasGeminiUsageMetadataTokens:
-// an all-zero ClaudeUsage must not become a BillingUsage, otherwise it would take
-// precedence during settlement and zero out a non-zero top-level usage.
+// All-zero ClaudeUsage must not become BillingUsage (would zero settlement).
 func HasClaudeUsageTokens(usage *ClaudeUsage) bool {
 	if usage == nil {
 		return false

@@ -29,8 +29,7 @@ func updateOpenAIImageCount(info *relaycommon.RelayInfo, count int64) {
 	info.PriceData.AddOtherRatio("n", float64(count))
 }
 
-// OpenaiImageHandler handles non-streaming OpenAI image responses
-// (generations/edits), returning the parsed usage for billing.
+// Non-streaming OpenAI image response path; returns usage for billing.
 func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	defer service.CloseResponseBodyGracefully(resp)
 
@@ -59,14 +58,7 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	return &usageResp.Usage, nil
 }
 
-// normalizeOpenAIUsage maps the OpenAI Images usage shape (input_tokens /
-// output_tokens / input_tokens_details) onto the canonical prompt/completion
-// fields. It is used only on the OpenAI image relay paths (generations/edits,
-// streaming and non-streaming): the image API never returns prompt_tokens /
-// completion_tokens, so the overwrite (=) semantics here are equivalent to the
-// previous additive (+=) behavior while avoiding any future double-counting if
-// both field sets are ever populated. Do not reuse this on chat/embedding paths
-// without revisiting the overwrite semantics.
+// Map image input/output token fields onto prompt/completion (overwrite, image paths only).
 func normalizeOpenAIUsage(usage *dto.Usage) {
 	if usage == nil {
 		return
@@ -103,12 +95,7 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 	if !strings.Contains(contentType, "text/event-stream") {
 		return openaiImageJSONAsStreamHandler(c, info, resp)
 	}
-	// Reuse the shared streaming engine (helper.StreamScannerHandler) so the
-	// image streaming path gets the same ping keepalive, streaming-timeout
-	// watchdog, client-disconnect detection, panic recovery and goroutine
-	// cleanup as every other relay stream. The scanner delivers only the
-	// "data:" payload, so the SSE "event:" line is rebuilt from the JSON "type"
-	// field (real OpenAI image events keep event == type).
+	// Shared StreamScannerHandler; rebuild SSE event line from JSON type.
 	usage := &dto.Usage{}
 	var lastStreamData []byte
 	var completedImages int64
@@ -117,8 +104,6 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 		raw := common.StringToByteSlice(data)
 		lastStreamData = raw
 		if isOpenAIImageStreamErrorEvent(raw) {
-			// Record the error as a soft error; the scanner drives the final
-			// EndReason. HasErrors() flags the failure for logging/handling.
 			sr.Error(fmt.Errorf("%s", extractOpenAIImageStreamErrorMessage(raw)))
 		}
 		var chunk struct {
@@ -139,20 +124,13 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 		}
 	})
 
-	// StreamScannerHandler consumes the upstream [DONE]; re-emit it so the
-	// client still receives a terminal data: [DONE].
+	// Scanner consumed upstream [DONE]; re-emit terminal [DONE] to client.
 	if info.StreamStatus != nil && info.StreamStatus.EndReason == relaycommon.StreamEndReasonDone {
 		helper.Done(c)
 	}
 
 	applyUsagePostProcessing(info, usage, lastStreamData)
-	// Only trust completedImages when upstream finished the stream (done/eof).
-	// On client-side aborts (client_gone, or handler_stop from a failed client
-	// write) the counter undercounts what upstream actually generated and
-	// charged, so keep the requested n — otherwise a client could pay for one
-	// image by disconnecting right after the first completed event. The abort
-	// guard only blocks lowering the charge: if completed events already
-	// exceed the recorded n, bill the higher actual count regardless.
+	// Abort must not lower n; may raise when completedImages exceeds requested n.
 	if info.StreamStatus != nil {
 		upstreamFinished := info.StreamStatus.EndReason == relaycommon.StreamEndReasonDone ||
 			info.StreamStatus.EndReason == relaycommon.StreamEndReasonEOF
@@ -167,9 +145,7 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 	return usage, nil
 }
 
-// writeOpenaiImageStreamChunk rebuilds the SSE frame for an image stream chunk:
-// it emits an "event:" line derived from the JSON "type" field (when present)
-// followed by the verbatim "data:" payload, mirroring helper.ResponseChunkData.
+// Rebuild SSE event+data frame from JSON type (scanner delivers data payload only).
 func writeOpenaiImageStreamChunk(c *gin.Context, data []byte) error {
 	var payload struct {
 		Type string `json:"type"`
@@ -181,11 +157,7 @@ func writeOpenaiImageStreamChunk(c *gin.Context, data []byte) error {
 	return helper.StringData(c, string(data))
 }
 
-// isOpenAIImageStreamErrorEvent detects upstream error chunks by JSON content
-// only ("type" of error/upstream_error, or a non-empty "error" field). The SSE
-// "event:" line is not available here: StreamScannerHandler delivers only the
-// "data:" payload. A payload carrying just a "message" key is deliberately NOT
-// treated as an error to avoid false positives.
+// Error event if type is error/upstream_error or error field set; bare message is not.
 func isOpenAIImageStreamErrorEvent(data []byte) bool {
 	if !json.Valid(data) {
 		return false
@@ -239,9 +211,7 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
 
-	// Only decode usage/error. Do not Unmarshal data[] into dto.ImageResponse —
-	// b64_json values are large and would be copied into Go strings then
-	// re-marshaled for each SSE event.
+	// Decode usage/error only; avoid copying multi-MB b64_json into Go strings.
 	var usageResp dto.SimpleResponse
 	if err := common.Unmarshal(responseBody, &usageResp); err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
@@ -288,9 +258,7 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 				return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 			}
 		}
-		// b64_json goes last: every sjson.Set* reallocates the whole payload,
-		// so inserting the large blob after all small fields avoids re-copying
-		// multi-MB buffers.
+		// Set b64_json last to avoid repeated multi-MB payload reallocations.
 		for _, field := range []string{"url", "revised_prompt", "b64_json"} {
 			value := image.Get(field)
 			if value.Type != gjson.String || value.Raw == `""` {
