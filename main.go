@@ -45,12 +45,6 @@ var buildFS embed.FS
 //go:embed web/default/dist/index.html
 var indexPage []byte
 
-//go:embed web/classic/dist
-var classicBuildFS embed.FS
-
-//go:embed web/classic/dist/index.html
-var classicIndexPage []byte
-
 func main() {
 	startTime := time.Now()
 
@@ -194,12 +188,7 @@ func main() {
 	InjectGoogleAnalytics()
 
 	// 设置路由
-	router.SetRouter(server, router.ThemeAssets{
-		DefaultBuildFS:   buildFS,
-		DefaultIndexPage: indexPage,
-		ClassicBuildFS:   classicBuildFS,
-		ClassicIndexPage: classicIndexPage,
-	})
+	router.SetRouter(server, buildFS, indexPage)
 	var port = os.Getenv("PORT")
 	if port == "" {
 		port = strconv.Itoa(*common.Port)
@@ -256,7 +245,6 @@ func InjectUmamiAnalytics() {
 	analyticsInject := []byte(analyticsInjectBuilder.String())
 	placeholder := []byte("<!--umami-->\n")
 	indexPage = bytes.ReplaceAll(indexPage, placeholder, analyticsInject)
-	classicIndexPage = bytes.ReplaceAll(classicIndexPage, placeholder, analyticsInject)
 }
 
 func InjectGoogleAnalytics() {
@@ -280,7 +268,6 @@ func InjectGoogleAnalytics() {
 	analyticsInject := []byte(analyticsInjectBuilder.String())
 	placeholder := []byte("<!--Google Analytics-->\n")
 	indexPage = bytes.ReplaceAll(indexPage, placeholder, analyticsInject)
-	classicIndexPage = bytes.ReplaceAll(classicIndexPage, placeholder, analyticsInject)
 }
 
 func InitResources() error {
@@ -313,6 +300,10 @@ func InitResources() error {
 	}
 
 	model.CheckSetup()
+
+	if err = model.CleanupDeprecatedOptions(); err != nil {
+		return fmt.Errorf("failed to clean deprecated options: %w", err)
+	}
 
 	// Initialize options, should after model.InitDB()
 	model.InitOptionMap()

@@ -15,9 +15,15 @@ import (
 	"gorm.io/gorm"
 )
 
+const DeprecatedFrontendOptionKey = "theme.frontend"
+
 type Option struct {
 	Key   string `json:"key" gorm:"primaryKey"`
 	Value string `json:"value"`
+}
+
+func CleanupDeprecatedOptions() error {
+	return DB.Where("key = ?", DeprecatedFrontendOptionKey).Delete(&Option{}).Error
 }
 
 func AllOption() ([]*Option, error) {
@@ -606,8 +612,6 @@ func handleConfigUpdate(key, value string) bool {
 	} else if configName == "billing_setting" {
 		InvalidatePricingCache()
 		ratio_setting.InvalidateExposedDataCache()
-	} else if configName == "theme" {
-		system_setting.UpdateAndSyncTheme()
 	}
 
 	return true // 已处理

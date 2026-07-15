@@ -212,44 +212,6 @@ export interface UserChartsFilters {
 }
 
 // ============================================================================
-// Uptime Monitoring Types
-// ============================================================================
-
-export interface UptimeMonitor {
-  name: string
-  uptime: number
-  status: number
-  group?: string
-}
-
-export interface UptimeGroupResult {
-  categoryName: string
-  monitors: UptimeMonitor[]
-}
-
-// ============================================================================
-// Dashboard Filter Types
-// ============================================================================
-
-export interface DashboardFilters {
-  start_timestamp?: Date
-  end_timestamp?: Date
-  time_granularity?: TimeGranularity
-  username?: string
-}
-
-export type ConsumptionDistributionChartType = 'bar' | 'area'
-
-export type ModelAnalyticsChartTab = 'trend' | 'proportion' | 'top'
-
-export interface DashboardChartPreferences {
-  consumptionDistributionChart: ConsumptionDistributionChartType
-  modelAnalyticsChart: ModelAnalyticsChartTab
-  defaultTimeRangeDays: number
-  defaultTimeGranularity: TimeGranularity
-}
-
-// ============================================================================
 // API Info Types
 // ============================================================================
 

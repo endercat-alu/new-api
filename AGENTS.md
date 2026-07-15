@@ -1,136 +1,33 @@
-# AGENTS.md — Project Conventions for new-api
+# AGENTS.md
 
-## Overview
+new-api is a Go/Gin/GORM AI API gateway with a single frontend at `web/default/` (React 19, TypeScript, Rsbuild, Base UI, Tailwind). Backend layers: Router -> Controller -> Service -> Model.
 
-This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers (OpenAI, Claude, Gemini, Azure, AWS Bedrock, etc.) behind a unified API, with user management, billing, rate limiting, and an admin dashboard.
+Paths: `router/` HTTP routing; `controller/` handlers; `service/` business logic; `model/` GORM access; `relay/` upstream adapters; `middleware/` auth, rate limits, logging; `setting/` system/model/ratio/performance config; `common/` shared utilities; `dto/`, `types/`, `constant/` DTOs and constants; `i18n/` backend en/zh; `web/default/` sole frontend and frontend en/zh i18n.
 
-## Tech Stack
+## JSON
 
-- **Backend**: Go 1.22+, Gin web framework, GORM v2 ORM
-- **Frontend**: React 19, TypeScript, Rsbuild, Base UI, Tailwind CSS
-- **Databases**: SQLite, MySQL, PostgreSQL (all three must be supported)
-- **Cache**: Redis (go-redis) + in-memory cache
-- **Auth**: JWT, WebAuthn/Passkeys, OAuth (GitHub, Discord, OIDC, etc.)
-- **Frontend package manager**: Bun (preferred over npm/yarn/pnpm)
+Business code MUST marshal/unmarshal JSON only through `common/json.go`: `common.Marshal`, `common.Unmarshal`, `common.UnmarshalJsonStr`, `common.DecodeJson`, `common.GetJsonType`. Types from `encoding/json` MAY be referenced. Direct `encoding/json` marshal/unmarshal calls MUST NOT be used.
 
-## Architecture
+## Database
 
-Layered architecture: Router -> Controller -> Service -> Model
+All database code MUST work on SQLite, MySQL >= 5.7.8, and PostgreSQL >= 9.6 simultaneously.
 
-```
-router/        — HTTP routing (API, relay, dashboard, web)
-controller/    — Request handlers
-service/       — Business logic
-model/         — Data models and DB access (GORM)
-relay/         — AI API relay/proxy with provider adapters
-  relay/channel/ — Provider-specific adapters (openai/, claude/, gemini/, aws/, etc.)
-middleware/    — Auth, rate limiting, CORS, logging, distribution
-setting/       — Configuration management (ratio, model, operation, system, performance)
-common/        — Shared utilities (JSON, crypto, Redis, env, rate-limit, etc.)
-dto/           — Data transfer objects (request/response structs)
-constant/      — Constants (API types, channel types, context keys)
-types/         — Type definitions (relay formats, file sources, errors)
-i18n/          — Backend internationalization (go-i18n, en/zh)
-oauth/         — OAuth provider implementations
-pkg/           — Internal packages (cachex, ionet)
-web/             — Frontend themes container
- web/default/   — Default frontend (React 19, Rsbuild, Base UI, Tailwind)
-  web/classic/   — Classic frontend (React 18, Vite, Semi Design)
-  web/default/src/i18n/ — Frontend internationalization (i18next, en/zh)
-```
+Prefer GORM APIs. Standard row locks in `model/` MUST use `lockForUpdate(tx)`. Reserved-word columns in raw SQL MUST use `commonGroupCol` and `commonKeyCol`. Boolean literals MUST use `commonTrueVal` and `commonFalseVal`. Dialect branches MUST use `common.UsingSQLite`, `common.UsingMySQL`, and `common.UsingPostgreSQL`, and MUST provide valid behavior for all three. Dialect-only functions, operators, types, or DDL MUST NOT be used without a cross-database fallback. Migrations MUST run on all three databases. SQLite-incompatible column changes MUST use a compatible migration path.
 
-## Internationalization (i18n)
+## Billing safety
 
-### Backend (`i18n/`)
-- Library: `nicksnyder/go-i18n/v2`
-- Languages: en, zh
+User-controlled or upstream-controlled billing multipliers MUST be upper-bounded before calculation. Reuse existing bounds such as `dto.MaxImageN`, `relaycommon.MaxTaskDurationSeconds`, and `maxTokensLimit`. Bypass paths (passthrough fields, metadata, multipart, media metadata, upstream settlement values) MUST enforce the same bounds. Quota/token conversion MUST NOT use unrestricted bare `int` casts; MUST use `common.QuotaFromFloat`, `common.QuotaRound`, or `common.QuotaFromDecimal`. Billing paths MUST use the matching `*Checked` helper, store clamps on `relayInfo.QuotaClamp` or the task settlement context, and call `attachQuotaSaturation` before writing consume/task logs. Ratios MUST be written only through `types.PriceData.AddOtherRatio`. Pre-consume and settlement MUST preserve non-negative, saturation, and audit invariants. Saturated oversized pre-consume MUST fail as insufficient quota. Unsigned inputs MUST also have upper bounds. Regression tests MUST sit next to the validation, conversion, or settlement boundary they protect.
 
-### Frontend (`web/default/src/i18n/`)
-- Library: `i18next` + `react-i18next` + `i18next-browser-languagedetector`
-- Languages: en (base), zh
-- Translation files: `web/default/src/i18n/locales/{lang}.json` — flat JSON, keys are English source strings
-- Usage: `useTranslation()` hook, call `t('English key')` in components
-- CLI tools: `bun run i18n:sync` (from `web/default/`)
+Before changing dynamic billing expressions, MUST fully read `pkg/billingexpr/expr.md`.
 
-## Rules
+## Upstream request DTOs
 
-### Rule 1: JSON Package — Use `common/json.go`
+Optional scalar fields parsed from client JSON and re-marshaled upstream MUST use pointer types with `omitempty`. IF the field is absent, THEN use `nil` and omit on marshal. IF the field is explicit `0`, `0.0`, or `false`, THEN keep a non-nil pointer and send it upstream.
 
-All JSON marshal/unmarshal operations MUST use the wrapper functions in `common/json.go`:
+## Frontend and i18n
 
-- `common.Marshal(v any) ([]byte, error)`
-- `common.Unmarshal(data []byte, v any) error`
-- `common.UnmarshalJsonStr(data string, v any) error`
-- `common.DecodeJson(reader io.Reader, v any) error`
-- `common.GetJsonType(data json.RawMessage) string`
+Frontend package and script work MUST prefer Bun. From the repo root: install with `bun install --cwd web`; run scripts with `bun run --cwd web/default <script>`. Frontend locales are flat JSON at `web/default/src/i18n/locales/{en,zh}.json` with English source strings as keys. New UI copy MUST use `useTranslation()` and `t('English source text')` and MUST update both `en` and `zh`. Preserve placeholders such as `{{name}}` and leave code, URLs, API paths, and identifiers untranslated. IF a new channel supports `StreamOptions`, THEN add it to `streamSupportedChannels`.
 
-Do NOT directly import or call `encoding/json` in business code. These wrappers exist for consistency and future extensibility (e.g., swapping to a faster JSON library).
+## Verification
 
-Note: `json.RawMessage`, `json.Number`, and other type definitions from `encoding/json` may still be referenced as types, but actual marshal/unmarshal calls must go through `common.*`.
-
-### Rule 2: Database Compatibility — SQLite, MySQL >= 5.7.8, PostgreSQL >= 9.6
-
-All database code MUST be fully compatible with all three databases simultaneously.
-
-**Use GORM abstractions:**
-- Prefer GORM methods (`Create`, `Find`, `Where`, `Updates`, etc.) over raw SQL.
-- Let GORM handle primary key generation — do not use `AUTO_INCREMENT` or `SERIAL` directly.
-- Standard `SELECT ... FOR UPDATE` row locks built with GORM query methods in `model/` MUST use `lockForUpdate(tx)`. Do not use the legacy GORM v1 pattern `tx.Set("gorm:query_option", "FOR UPDATE")`, because GORM v2 silently ignores it and no lock is acquired. Do not duplicate `clause.Locking{Strength: "UPDATE"}` at call sites; the shared helper emits `FOR UPDATE` for MySQL/PostgreSQL and skips it for SQLite, where the syntax is unsupported. Dialect-specific locking with different semantics (for example, a MySQL next-key/gap lock) may use raw SQL only behind explicit database-type branches with valid fallbacks for every supported database.
-
-**When raw SQL is unavoidable:**
-- Column quoting differs: PostgreSQL uses `"column"`, MySQL/SQLite uses `` `column` ``.
-- Use `commonGroupCol`, `commonKeyCol` variables from `model/main.go` for reserved-word columns like `group` and `key`.
-- Boolean values differ: PostgreSQL uses `true`/`false`, MySQL/SQLite uses `1`/`0`. Use `commonTrueVal`/`commonFalseVal`.
-- Use `common.UsingPostgreSQL`, `common.UsingSQLite`, `common.UsingMySQL` flags to branch DB-specific logic.
-
-**Forbidden without cross-DB fallback:**
-- MySQL-only functions (e.g., `GROUP_CONCAT` without PostgreSQL `STRING_AGG` equivalent)
-- PostgreSQL-only operators (e.g., `@>`, `?`, `JSONB` operators)
-- `ALTER COLUMN` in SQLite (unsupported — use column-add workaround)
-- Database-specific column types without fallback — use `TEXT` instead of `JSONB` for JSON storage
-
-**Migrations:**
-- Ensure all migrations work on all three databases.
-- For SQLite, use `ALTER TABLE ... ADD COLUMN` instead of `ALTER COLUMN` (see `model/main.go` for patterns).
-
-**Billing safety invariants:** Quota/billing code MUST never produce a negative charge (a credit) from arithmetic overflow or unvalidated input. Apply defense in depth:
-
-- Every user-controlled quantity that becomes a billing multiplier (image `n`, video `seconds`/`duration`, resolution/quality ratios, batch counts) MUST be bounded before it reaches quota calculation. Reject out-of-range values at request validation with a 400. Existing bounds: `dto.MaxImageN` for image generation count, `relaycommon.MaxTaskDurationSeconds` for task video duration, `maxTokensLimit` (`relay/helper/valid_request.go`) for `max_tokens`-family fields on every relay format (OpenAI, Claude, Gemini, Responses). Reuse these constants instead of introducing new ad hoc limits for the same concepts. When adding a new relay format or request DTO, bound its max-tokens and count fields in its validator from day one.
-- Watch for validation bypass paths: passthrough fields (e.g. `Extra["parameters"]`), task `metadata` maps, and multipart form fields can carry the same quantities around the standard DTO validation. Any adaptor that reads a multiplier from such a path must enforce the same bound (or clamp) locally.
-- Durations parsed from media metadata are user/upstream-controlled too: audio file headers (transcription token counting, TTS response duration) and upstream deduction numbers (e.g. Kling `FinalUnitDeduction`) can claim absurd values. Convert them with saturation before they become token counts.
-- Never convert a computed quota or token count to `int` with a bare cast like `int(float64(quota) * ratio)`, `int(math.Round(...))` on unbounded input, or `int(decimal.IntPart())`. All quota rounding/conversion is centralized in `common/quota_math.go`; use those helpers: `common.QuotaFromFloat` (truncating) for float products, `common.QuotaRound` (half-away-from-zero) where rounding is intended, and `common.QuotaFromDecimal` for decimal products. `billingexpr.QuotaRound` delegates to `common.QuotaRound`. Do not reintroduce local conversion helpers or bare casts. Saturation bounds are int32 because quota columns (user/token/log) are 32-bit integers in the database, and every clamp/NaN fallback is logged via `common.SysError` since a single request should never approach those bounds.
-- Saturation events are also audited: each helper has a `*Checked` variant (`common.QuotaFromFloatChecked` / `QuotaRoundChecked` / `QuotaFromDecimalChecked`) that additionally returns a `*common.QuotaClamp` when clamping occurred. Billing paths that compute a charge capture that clamp onto `relayInfo.QuotaClamp` (or thread it into task settlement) and, right before writing the consume/task log, call `attachQuotaSaturation` (in `service/log_info_generate.go`) which nests the marker under the log's `other.admin_info.quota_saturation` and emits a request-correlated `logger.LogWarn`. Nesting under `admin_info` makes it admin-only for free (non-admin log views strip `admin_info`). When adding a new billing path, use the `*Checked` variant and surface the clamp the same way so the anomaly stays auditable in both the admin log UI and backend logs.
-- Multiplier maps go through `types.PriceData.AddOtherRatio`, which rejects non-positive, NaN, and +Inf ratios. Do not write to `PriceData.OtherRatios` directly, and do not weaken these guards.
-- Pre-consume (预扣费) and settle (结算/差额) must both be safe: a saturated oversized quota must fail pre-consume with insufficient-quota, never silently wrap. When adding a new billing path (new relay format, new task platform, new adjustment hook), trace the full chain — validation → EstimateBilling/OtherRatios → quota conversion → pre-consume → settle/refund — and confirm each step preserves these invariants.
-- Fields parsed into unsigned types (`*uint`) accept huge positive JSON numbers (e.g. `18446744073686646784`, a wrapped negative); a `>= 0` check is not sufficient, an upper bound is mandatory.
-- Regression tests for these invariants belong with the boundary they protect (request validators, converter helpers). See `relay/helper/openai_image_request_test.go`, `relay/common/relay_utils_test.go`, and `common/quota_math_test.go` for the expected style.
-
-**Backend test quality:** Backend tests must protect real behavior, API contracts, billing/accounting invariants, data compatibility, or regression paths.
-
-### Rule 3: Frontend — Prefer Bun
-
-Use `bun` as the preferred package manager and script runner for the frontend (`web/default/` directory):
-- `bun install` for dependency installation
-- `bun run dev` for development server
-- `bun run build` for production build
-- `bun run i18n:*` for i18n tooling
-
-### Rule 4: New Channel StreamOptions Support
-
-When implementing a new channel:
-- Confirm whether the provider supports `StreamOptions`.
-- If supported, add the channel to `streamSupportedChannels`.
-
-### Rule 5: Upstream Relay Request DTOs — Preserve Explicit Zero Values
-
-For request structs that are parsed from client JSON and then re-marshaled to upstream providers (especially relay/convert paths):
-
-- Optional scalar fields MUST use pointer types with `omitempty` (e.g. `*int`, `*uint`, `*float64`, `*bool`), not non-pointer scalars.
-- Semantics MUST be:
-  - field absent in client JSON => `nil` => omitted on marshal;
-  - field explicitly set to zero/false => non-`nil` pointer => must still be sent upstream.
-- Avoid using non-pointer scalars with `omitempty` for optional request parameters, because zero values (`0`, `0.0`, `false`) will be silently dropped during marshal.
-
-### Rule 6: Billing Expression System — Read `pkg/billingexpr/expr.md`
-
-When working on tiered/dynamic billing (expression-based pricing), you MUST read `pkg/billingexpr/expr.md` first. It documents the design philosophy, expression language (variables, functions, examples), full system architecture (editor → storage → pre-consume → settlement → log display), token normalization rules (`p`/`c` auto-exclusion), quota conversion, and expression versioning. All code changes to the billing expression system must follow the patterns described in that document.
+Scope verification to the change. Backend behavior changes MUST run relevant tests; run `go test ./...` and `go build ./...` when the change warrants full coverage. Frontend changes MUST run the matching checks; full check is `bun run --cwd web/default build:check`. i18n changes MUST run `bun run --cwd web/default i18n:sync` and leave no unexpected diffs. IF only compile/build was verified, THEN report only compile/build success; MUST NOT claim runtime behavior was verified.

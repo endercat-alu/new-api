@@ -138,6 +138,12 @@ func UpdateOption(c *gin.Context) {
 		option.Value = fmt.Sprintf("%v", option.Value)
 	}
 	switch option.Key {
+	case model.DeprecatedFrontendOptionKey:
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "该设置项已废弃",
+		})
+		return
 	case "QuotaForInviter", "QuotaForInvitee":
 		if isPositiveOptionValue(option.Value.(string)) && !operation_setting.IsPaymentComplianceConfirmed() {
 			common.ApiErrorI18n(c, i18n.MsgPaymentComplianceRequired)
@@ -212,14 +218,6 @@ func UpdateOption(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
 				"message": "无法启用 Telegram OAuth，请先填入 Telegram Bot Token！",
-			})
-			return
-		}
-	case "theme.frontend":
-		if option.Value != "default" && option.Value != "classic" {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "无效的主题值，可选值：default（新版前端）、classic（经典前端）",
 			})
 			return
 		}

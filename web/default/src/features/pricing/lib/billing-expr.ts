@@ -19,9 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 /**
  * Billing expression parsing utilities.
  *
- * Mirrors the parser used by the classic frontend so that the dynamic
- * pricing breakdown UI can be rendered from the same backend expressions.
- *
  * The grammar is intentionally narrow: we only support the shapes that the
  * server emits (tiered pricing + request-rule conditional multipliers), so
  * the regular expressions are exact rather than tolerant of arbitrary
