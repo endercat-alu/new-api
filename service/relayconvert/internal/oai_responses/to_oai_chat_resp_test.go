@@ -388,3 +388,61 @@ func mustStreamChunks(t *testing.T, state *ResponsesToChatStreamState, event *dt
 	require.NoError(t, err)
 	return chunks
 }
+
+func TestResponsesStreamEventToChatChunksDoesNotResendToolOnTerminalOutput(t *testing.T) {
+	state := newTestResponsesStreamState()
+	outputIndex := 0
+
+	var chunks []dto.ChatCompletionsStreamResponse
+	chunks = append(chunks, mustStreamChunks(t, state, &dto.ResponsesStreamResponse{Type: responsesEventCreated})...)
+	chunks = append(chunks, mustStreamChunks(t, state, &dto.ResponsesStreamResponse{
+		Type:        responsesEventOutputItemAdded,
+		OutputIndex: &outputIndex,
+		Item: &dto.ResponsesOutput{
+			Type:   responsesOutputTypeFunctionCall,
+			ID:     "fc_1",
+			CallId: "call_1",
+			Name:   "lookup",
+		},
+	})...)
+	chunks = append(chunks, mustStreamChunks(t, state, &dto.ResponsesStreamResponse{
+		Type:        responsesEventFunctionArgsDelta,
+		OutputIndex: &outputIndex,
+		Delta:       `{"q":"x"}`,
+	})...)
+	chunks = append(chunks, mustStreamChunks(t, state, &dto.ResponsesStreamResponse{
+		Type: responsesEventCompleted,
+		Response: &dto.OpenAIResponsesResponse{
+			Status: []byte(`"completed"`),
+			Output: []dto.ResponsesOutput{
+				{
+					Type:      responsesOutputTypeFunctionCall,
+					ID:        "fc_1",
+					CallId:    "call_1",
+					Name:      "lookup",
+					Arguments: []byte(`{"q":"x"}`),
+				},
+			},
+		},
+	})...)
+
+	totalArgs := ""
+	toolIndexes := map[int]bool{}
+	var finishReason string
+	for _, chunk := range chunks {
+		for _, choice := range chunk.Choices {
+			for _, tc := range choice.Delta.ToolCalls {
+				require.NotNil(t, tc.Index)
+				toolIndexes[*tc.Index] = true
+				totalArgs += tc.Function.Arguments
+			}
+			if choice.FinishReason != nil {
+				finishReason = *choice.FinishReason
+			}
+		}
+	}
+
+	assert.Equal(t, map[int]bool{0: true}, toolIndexes)
+	assert.Equal(t, `{"q":"x"}`, totalArgs)
+	assert.Equal(t, "tool_calls", finishReason)
+}
