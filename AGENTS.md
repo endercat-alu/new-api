@@ -1,33 +1,55 @@
 # AGENTS.md
 
-new-api is a Go/Gin/GORM AI API gateway with a single frontend at `web/default/` (React 19, TypeScript, Rsbuild, Base UI, Tailwind). Backend layers: Router -> Controller -> Service -> Model.
+## Project layout
 
-Paths: `router/` HTTP routing; `controller/` handlers; `service/` business logic; `model/` GORM access; `relay/` upstream adapters; `middleware/` auth, rate limits, logging; `setting/` system/model/ratio/performance config; `common/` shared utilities; `dto/`, `types/`, `constant/` DTOs and constants; `i18n/` backend en/zh; `web/default/` sole frontend and frontend en/zh i18n.
+- Treat `new-api` as a Go/Gin/GORM AI API gateway with the backend flow `router/` -> `controller/` -> `service/` -> `model/`.
+- Use `web/default/` as the React 19, TypeScript, Rsbuild, Base UI, and Tailwind frontend.
+- Place HTTP routes in `router/`, handlers in `controller/`, business logic in `service/`, GORM access in `model/`, and upstream adapters in `relay/`.
+- Place authentication, rate-limit, and logging middleware in `middleware/`; system, model, ratio, and performance configuration in `setting/`; shared utilities in `common/`; DTOs in `dto/`; shared types in `types/`; constants in `constant/`; and backend English/Chinese localization in `i18n/`.
 
 ## JSON
 
-Business code MUST marshal/unmarshal JSON only through `common/json.go`: `common.Marshal`, `common.Unmarshal`, `common.UnmarshalJsonStr`, `common.DecodeJson`, `common.GetJsonType`. Types from `encoding/json` MAY be referenced. Direct `encoding/json` marshal/unmarshal calls MUST NOT be used.
+- Route business-code JSON operations through `common/json.go`: use `common.Marshal`, `common.Unmarshal`, `common.UnmarshalJsonStr`, `common.DecodeJson`, and `common.GetJsonType`.
+- Use `encoding/json` types when needed, while keeping JSON marshal and unmarshal operations on the `common` wrappers.
 
 ## Database
 
-All database code MUST work on SQLite, MySQL >= 5.7.8, and PostgreSQL >= 9.6 simultaneously.
-
-Prefer GORM APIs. Standard row locks in `model/` MUST use `lockForUpdate(tx)`. Reserved-word columns in raw SQL MUST use `commonGroupCol` and `commonKeyCol`. Boolean literals MUST use `commonTrueVal` and `commonFalseVal`. Dialect branches MUST use `common.UsingSQLite`, `common.UsingMySQL`, and `common.UsingPostgreSQL`, and MUST provide valid behavior for all three. Dialect-only functions, operators, types, or DDL MUST NOT be used without a cross-database fallback. Migrations MUST run on all three databases. SQLite-incompatible column changes MUST use a compatible migration path.
+- Keep every database change compatible with SQLite, MySQL `>= 5.7.8`, and PostgreSQL `>= 9.6`.
+- Use GORM APIs for database access and apply `lockForUpdate(tx)` for standard row locks in `model/`.
+- Quote reserved-word columns in raw SQL with `commonGroupCol` and `commonKeyCol`, and use `commonTrueVal` and `commonFalseVal` for boolean literals.
+- Select dialect branches through `common.UsingSQLite`, `common.UsingMySQL`, and `common.UsingPostgreSQL`, then provide valid behavior for all three databases.
+- Implement dialect-specific functions, operators, types, and DDL with a valid cross-database fallback.
+- Keep migrations runnable on all three databases and use a SQLite-compatible migration path for SQLite-incompatible column changes.
 
 ## Billing safety
 
-User-controlled or upstream-controlled billing multipliers MUST be upper-bounded before calculation. Reuse existing bounds such as `dto.MaxImageN`, `relaycommon.MaxTaskDurationSeconds`, and `maxTokensLimit`. Bypass paths (passthrough fields, metadata, multipart, media metadata, upstream settlement values) MUST enforce the same bounds. Quota/token conversion MUST NOT use unrestricted bare `int` casts; MUST use `common.QuotaFromFloat`, `common.QuotaRound`, or `common.QuotaFromDecimal`. Billing paths MUST use the matching `*Checked` helper, store clamps on `relayInfo.QuotaClamp` or the task settlement context, and call `attachQuotaSaturation` before writing consume/task logs. Ratios MUST be written only through `types.PriceData.AddOtherRatio`. Pre-consume and settlement MUST preserve non-negative, saturation, and audit invariants. Saturated oversized pre-consume MUST fail as insufficient quota. Unsigned inputs MUST also have upper bounds. Regression tests MUST sit next to the validation, conversion, or settlement boundary they protect.
-
-Before changing dynamic billing expressions, MUST fully read `pkg/billingexpr/expr.md`.
+- Bound every user-controlled or upstream-controlled billing multiplier before calculation, reusing bounds such as `dto.MaxImageN`, `relaycommon.MaxTaskDurationSeconds`, and `maxTokensLimit`.
+- Apply the same bounds to passthrough fields, metadata, multipart data, media metadata, and upstream settlement values.
+- Route quota and token conversion through `common.QuotaFromFloat`, `common.QuotaRound`, or `common.QuotaFromDecimal` and use the corresponding `*Checked` helper in billing paths.
+- Store conversion clamps on `relayInfo.QuotaClamp` or the task settlement context, and call `attachQuotaSaturation` before writing consume or task logs.
+- Write price ratios through `types.PriceData.AddOtherRatio`.
+- Keep pre-consume and settlement values non-negative and preserve saturation and audit invariants.
+- Treat an oversized pre-consume that reaches saturation as insufficient quota and fail it.
+- Bound unsigned inputs before they enter billing calculations.
+- Place regression tests beside the validation, conversion, or settlement boundary they protect.
+- Read `pkg/billingexpr/expr.md` in full before changing dynamic billing expressions.
 
 ## Upstream request DTOs
 
-Optional scalar fields parsed from client JSON and re-marshaled upstream MUST use pointer types with `omitempty`. IF the field is absent, THEN use `nil` and omit on marshal. IF the field is explicit `0`, `0.0`, or `false`, THEN keep a non-nil pointer and send it upstream.
+- Model optional scalar fields parsed from client JSON and re-marshaled upstream as pointer types with `omitempty`.
+- If an optional field is absent, set it to `nil` so marshal omits it; if the client explicitly sends `0`, `0.0`, or `false`, keep a non-nil pointer and send that value upstream.
 
 ## Frontend and i18n
 
-Frontend package and script work MUST prefer Bun. From the repo root: install with `bun install --cwd web`; run scripts with `bun run --cwd web/default <script>`. Frontend locales are flat JSON at `web/default/src/i18n/locales/{en,zh}.json` with English source strings as keys. New UI copy MUST use `useTranslation()` and `t('English source text')` and MUST update both `en` and `zh`. Preserve placeholders such as `{{name}}` and leave code, URLs, API paths, and identifiers untranslated. IF a new channel supports `StreamOptions`, THEN add it to `streamSupportedChannels`.
+- Prefer Bun for frontend package and script work: install from the repository root with `bun install --cwd web`, and run scripts with `bun run --cwd web/default <script>`.
+- Keep frontend locales as flat JSON files at `web/default/src/i18n/locales/{en,zh}.json`, using English source strings as keys.
+- Add new UI copy through `useTranslation()` and `t('English source text')`, then update both `en` and `zh` locales.
+- Preserve placeholders such as `{{name}}`, and leave code, URLs, API paths, and identifiers untranslated.
+- When a new channel supports `StreamOptions`, add its channel type to `streamSupportedChannels`.
 
 ## Verification
 
-Scope verification to the change. Backend behavior changes MUST run relevant tests; run `go test ./...` and `go build ./...` when the change warrants full coverage. Frontend changes MUST run the matching checks; full check is `bun run --cwd web/default build:check`. i18n changes MUST run `bun run --cwd web/default i18n:sync` and leave no unexpected diffs. IF only compile/build was verified, THEN report only compile/build success; MUST NOT claim runtime behavior was verified.
+- Scope verification to the change: run relevant tests for backend behavior changes, and run `go test ./...` plus `go build ./...` when the change warrants full coverage.
+- Run the matching frontend checks; use `bun run --cwd web/default build:check` for the full frontend check.
+- Run `bun run --cwd web/default i18n:sync` for i18n changes and leave no unexpected diffs.
+- Report only `Compilation/Build successful` when compilation or build is the sole successful verification, and reserve runtime-behavior claims for evidence beyond compilation or build.
