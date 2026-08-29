@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import {
@@ -90,7 +90,15 @@ function DebouncedFilterInput({
   onCommit,
 }: DebouncedFilterInputProps) {
   const [inputValue, setInputValue] = useState(value)
+  const previousValue = useRef(value)
   const debouncedValue = useDebounce(inputValue, 500)
+
+  useEffect(() => {
+    if (value !== previousValue.current) {
+      previousValue.current = value
+      setInputValue(value)
+    }
+  }, [value])
 
   useEffect(() => {
     if (debouncedValue !== value) {
@@ -424,7 +432,6 @@ export function ChannelsTable() {
         searchPlaceholder: t('Filter by name, ID, or key...'),
         customSearch: (
           <DebouncedFilterInput
-            key={globalFilter ?? ''}
             value={globalFilter ?? ''}
             placeholder={t('Filter by name, ID, or key...')}
             onCommit={(value) => onGlobalFilterChange?.(value)}
@@ -432,7 +439,6 @@ export function ChannelsTable() {
         ),
         additionalSearch: (
           <DebouncedFilterInput
-            key={modelFilterFromUrl}
             value={modelFilterFromUrl}
             placeholder={t('Filter by model...')}
             onCommit={handleModelFilterCommit}
