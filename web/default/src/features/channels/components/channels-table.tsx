@@ -78,6 +78,36 @@ function isDisabledChannelRow(channel: Channel) {
   )
 }
 
+type DebouncedFilterInputProps = {
+  value: string
+  placeholder: string
+  onCommit: (value: string) => void
+}
+
+function DebouncedFilterInput({
+  value,
+  placeholder,
+  onCommit,
+}: DebouncedFilterInputProps) {
+  const [inputValue, setInputValue] = useState(value)
+  const debouncedValue = useDebounce(inputValue, 500)
+
+  useEffect(() => {
+    if (debouncedValue !== value) {
+      onCommit(debouncedValue)
+    }
+  }, [debouncedValue, value, onCommit])
+
+  return (
+    <Input
+      placeholder={placeholder}
+      value={inputValue}
+      onChange={(event) => setInputValue(event.target.value)}
+      className='w-full sm:w-[150px] lg:w-[180px]'
+    />
+  )
+}
+
 export function ChannelsTable() {
   const { t } = useTranslation()
   const { enableTagMode, idSort } = useChannels()
@@ -143,26 +173,12 @@ export function ChannelsTable() {
   const modelFilterFromUrl =
     (columnFilters.find((f) => f.id === 'model')?.value as string) || ''
 
-  // Local state for immediate input feedback
-  const [modelFilterInput, setModelFilterInput] = useState(modelFilterFromUrl)
-  const debouncedModelFilter = useDebounce(modelFilterInput, 500)
-
-  // Sync local input with URL when URL changes (e.g., from back/forward navigation)
-  useEffect(() => {
-    setModelFilterInput(modelFilterFromUrl)
-  }, [modelFilterFromUrl])
-
-  // Update URL when debounced value changes
-  useEffect(() => {
-    if (debouncedModelFilter !== modelFilterFromUrl) {
-      onColumnFiltersChange((prev) => {
-        const filtered = prev.filter((f) => f.id !== 'model')
-        return debouncedModelFilter
-          ? [...filtered, { id: 'model', value: debouncedModelFilter }]
-          : filtered
-      })
-    }
-  }, [debouncedModelFilter, modelFilterFromUrl, onColumnFiltersChange])
+  const handleModelFilterCommit = (value: string) => {
+    onColumnFiltersChange((prev) => {
+      const filtered = prev.filter((filter) => filter.id !== 'model')
+      return value ? [...filtered, { id: 'model', value }] : filtered
+    })
+  }
 
   const modelFilter = modelFilterFromUrl
 
@@ -406,12 +422,20 @@ export function ChannelsTable() {
       tableHeaderClassName='[&_th]:font-semibold [&_button]:font-semibold'
       toolbarProps={{
         searchPlaceholder: t('Filter by name, ID, or key...'),
+        customSearch: (
+          <DebouncedFilterInput
+            key={globalFilter ?? ''}
+            value={globalFilter ?? ''}
+            placeholder={t('Filter by name, ID, or key...')}
+            onCommit={(value) => onGlobalFilterChange?.(value)}
+          />
+        ),
         additionalSearch: (
-          <Input
+          <DebouncedFilterInput
+            key={modelFilterFromUrl}
+            value={modelFilterFromUrl}
             placeholder={t('Filter by model...')}
-            value={modelFilterInput}
-            onChange={(e) => setModelFilterInput(e.target.value)}
-            className='w-full sm:w-[150px] lg:w-[180px]'
+            onCommit={handleModelFilterCommit}
           />
         ),
         filters: [
