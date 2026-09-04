@@ -72,6 +72,12 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
 	}
+	if info.RelayFormat == types.RelayFormatOpenAI {
+		responseBody, err = relaycommon.RewriteOpenAIChatResponseToolNames(responseBody, info)
+		if err != nil {
+			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+	}
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 	return usage, nil
@@ -180,6 +186,12 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
 	}
+	if info.RelayFormat == types.RelayFormatOpenAI {
+		responseBody, err = relaycommon.RewriteOpenAIChatResponseToolNames(responseBody, info)
+		if err != nil {
+			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+	}
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 	return usage, nil
@@ -222,9 +234,28 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		return true
 	}
 
+	var rewriteStreamToolNames = func(value *dto.ChatCompletionsStreamResponse) error {
+		if info.RelayFormat != types.RelayFormatOpenAI || value == nil {
+			return nil
+		}
+		body, err := common.Marshal(value)
+		if err != nil {
+			return err
+		}
+		body, err = relaycommon.RewriteOpenAIChatResponseToolNames(body, info)
+		if err != nil {
+			return err
+		}
+		return common.Unmarshal(body, value)
+	}
+
 	sendStreamResult := func(result relayconvert.ResponseResult) bool {
 		switch value := result.Value.(type) {
 		case dto.ChatCompletionsStreamResponse:
+			if err := rewriteStreamToolNames(&value); err != nil {
+				streamErr = types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+				return false
+			}
 			if len(value.Choices) == 0 && value.Usage == nil {
 				return true
 			}
@@ -234,6 +265,10 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			}
 			return true
 		case *dto.ChatCompletionsStreamResponse:
+			if err := rewriteStreamToolNames(value); err != nil {
+				streamErr = types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+				return false
+			}
 			if value == nil || (len(value.Choices) == 0 && value.Usage == nil) {
 				return true
 			}

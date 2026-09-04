@@ -57,6 +57,11 @@ type BuildInToolInfo struct {
 	SearchContextSize string
 }
 
+type ToolNameRewrite struct {
+	ClientName   string
+	UpstreamName string
+}
+
 type ResponsesUsageInfo struct {
 	BuiltInTools map[string]*BuildInToolInfo
 }
@@ -154,6 +159,8 @@ type RelayInfo struct {
 	RuntimeHeadersOverride                map[string]interface{}
 	UseRuntimeHeadersOverride             bool
 	ParamOverrideAudit                    []string
+	// ToolNameRewrites maps upstream tool names back to their client names for this request.
+	ToolNameRewrites []ToolNameRewrite
 
 	// UpstreamRequestBodySize is the byte size of the marshaled upstream request
 	// body. It is set when the body is wrapped in a BodyStorage (see

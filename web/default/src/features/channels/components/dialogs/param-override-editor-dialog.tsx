@@ -108,6 +108,7 @@ const OPERATION_MODE_OPTIONS = [
   { label: 'Prepend to Start', value: 'prepend' },
   { label: 'Copy Field', value: 'copy' },
   { label: 'Move Field', value: 'move' },
+  { label: 'Rename Tool', value: 'rename_tool' },
   { label: 'String Replace', value: 'replace' },
   { label: 'Regex Replace', value: 'regex_replace' },
   { label: 'Trim Prefix', value: 'trim_prefix' },
@@ -171,6 +172,7 @@ const MODE_META: Record<
   prepend: { path: true, value: true, keepOrigin: true },
   copy: { from: true, to: true },
   move: { from: true, to: true },
+  rename_tool: { from: true, to: true },
   replace: { path: true, from: true, to: false },
   regex_replace: { path: true, from: true, to: false },
   trim_prefix: { path: true, value: true },
@@ -204,6 +206,7 @@ const VALUE_REQUIRED_MODES = new Set([
 const FROM_REQUIRED_MODES = new Set([
   'copy',
   'move',
+  'rename_tool',
   'replace',
   'regex_replace',
   'copy_header',
@@ -214,6 +217,7 @@ const FROM_REQUIRED_MODES = new Set([
 const TO_REQUIRED_MODES = new Set([
   'copy',
   'move',
+  'rename_tool',
   'copy_header',
   'move_header',
   'sync_fields',
@@ -239,6 +243,7 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
   prune_objects: 'Prune object items by conditions',
   pass_headers: 'Pass specified request headers to upstream',
   sync_fields: 'Auto-fill when one field exists and another is missing',
+  rename_tool: 'Rename a tool in the request and restore its name in the response',
   set_header:
     'Set runtime request header: override entire value, or manipulate comma-separated tokens',
   delete_header: 'Delete a runtime request header',
@@ -604,6 +609,7 @@ const getModePathPlaceholder = (mode: string): string => {
 }
 
 const getModeFromLabel = (mode: string): string => {
+  if (mode === 'rename_tool') return 'Client Tool Name'
   if (mode === 'replace') return 'Match Text'
   if (mode === 'regex_replace') return 'Regex Pattern'
   if (mode === 'copy_header' || mode === 'move_header') return 'Source Header'
@@ -611,6 +617,7 @@ const getModeFromLabel = (mode: string): string => {
 }
 
 const getModeFromPlaceholder = (mode: string): string => {
+  if (mode === 'rename_tool') return 'web_search'
   if (mode === 'replace') return 'openai/'
   if (mode === 'regex_replace') return '^gpt-'
   if (mode === 'copy_header' || mode === 'move_header') return 'Authorization'
@@ -618,12 +625,14 @@ const getModeFromPlaceholder = (mode: string): string => {
 }
 
 const getModeToLabel = (mode: string): string => {
+  if (mode === 'rename_tool') return 'Upstream Tool Name'
   if (mode === 'replace' || mode === 'regex_replace') return 'Replace With'
   if (mode === 'copy_header' || mode === 'move_header') return 'Target Header'
   return 'Target Field'
 }
 
 const getModeToPlaceholder = (mode: string): string => {
+  if (mode === 'rename_tool') return 'search_web'
   if (mode === 'replace') return '(leave empty to delete)'
   if (mode === 'regex_replace') return 'openai/gpt-'
   if (mode === 'copy_header' || mode === 'move_header') return 'X-Upstream-Auth'

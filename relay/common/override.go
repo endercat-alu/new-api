@@ -182,6 +182,8 @@ func ApplyParamOverrideWithRelayInfo(jsonData []byte, info *RelayInfo) ([]byte, 
 	}
 
 	overrideCtx := BuildParamOverrideContext(info)
+	toolNameRecorder := newToolNameRewriteRecorder()
+	overrideCtx[paramOverrideToolNameRecorder] = toolNameRecorder
 	var recorder *paramOverrideAuditRecorder
 	if shouldEnableParamOverrideAudit(paramOverride) {
 		recorder = &paramOverrideAuditRecorder{}
@@ -192,6 +194,7 @@ func ApplyParamOverrideWithRelayInfo(jsonData []byte, info *RelayInfo) ([]byte, 
 		return nil, err
 	}
 	syncRuntimeHeaderOverrideFromContext(info, overrideCtx)
+	toolNameRecorder.appendTo(info)
 	if info != nil {
 		if recorder != nil {
 			info.ParamOverrideAudit = recorder.lines
@@ -324,6 +327,11 @@ func buildParamOverrideAuditLine(mode, path, from, to string, value interface{})
 			return ""
 		}
 		return fmt.Sprintf("move %s -> %s", from, to)
+	case "rename_tool":
+		if from == "" || to == "" {
+			return ""
+		}
+		return fmt.Sprintf("rename_tool %s -> %s", from, to)
 	case "prepend":
 		if path == "" {
 			return ""
@@ -754,6 +762,20 @@ func applyOperations(jsonData []byte, operations []ParamOperation, conditionCont
 		}
 
 		switch op.Mode {
+		case "rename_tool":
+			if strings.TrimSpace(op.From) == "" || strings.TrimSpace(op.To) == "" {
+				return nil, fmt.Errorf("rename_tool requires from and to")
+			}
+			var changed bool
+			result, changed, err = rewriteRequestToolNames(result, op.From, op.To)
+			if err == nil && changed {
+				if toolNameRecorder, ok := context[paramOverrideToolNameRecorder].(*toolNameRewriteRecorder); ok {
+					err = toolNameRecorder.record(op.From, op.To)
+				}
+			}
+			if err == nil {
+				auditRecorder.recordOperation("rename_tool", "", op.From, op.To, nil)
+			}
 		case "delete":
 			for _, path := range opPaths {
 				result, err = deleteValue(result, path)

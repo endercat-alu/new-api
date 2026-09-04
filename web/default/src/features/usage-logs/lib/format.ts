@@ -33,6 +33,7 @@ const PARAM_OVERRIDE_ACTION_MAP: Record<string, string> = {
   delete: 'Delete',
   copy: 'Copy',
   move: 'Move',
+  rename_tool: 'Rename Tool',
   append: 'Append',
   prepend: 'Prepend',
   trim_prefix: 'Trim Prefix',

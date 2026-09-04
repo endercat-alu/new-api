@@ -131,6 +131,14 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 		}
 		if len(data) > 0 {
+			rewrittenData, rewriteErr := relaycommon.RewriteOpenAIChatResponseToolNames(common.StringToByteSlice(data), info)
+			if rewriteErr != nil {
+				logger.LogError(c, "error rewriting stream tool names: "+rewriteErr.Error())
+				sr.Error(rewriteErr)
+			} else {
+				data = string(rewrittenData)
+			}
+
 			// 对音频模型，保存倒数第二个stream data
 			if isAudioModel && lastStreamData != "" {
 				secondLastStreamData = lastStreamData
@@ -291,6 +299,13 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 		}
 		responseBody = geminiRespStr
+	}
+
+	if info.RelayFormat == types.RelayFormatOpenAI {
+		responseBody, err = relaycommon.RewriteOpenAIChatResponseToolNames(responseBody, info)
+		if err != nil {
+			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
 	}
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
